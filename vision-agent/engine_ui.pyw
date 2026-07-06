@@ -9,6 +9,7 @@ from pathlib import Path
 HOST = os.getenv("VISIONPOS_AGENT_HOST", "127.0.0.1")
 PORT = int(os.getenv("VISIONPOS_AGENT_PORT", "8767"))
 BASE_DIR = Path(__file__).resolve().parent
+IS_FROZEN = getattr(sys, "frozen", False)
 
 try:
     import tkinter as tk
@@ -20,6 +21,7 @@ except ImportError:
 class VisionEngineApp:
     def __init__(self) -> None:
         self.process: subprocess.Popen | None = None
+        self._server_thread: threading.Thread | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -161,9 +163,24 @@ class VisionEngineApp:
 
         self._log("Engine ready. Click Run Engine to start.")
 
+    def _log_safe(self, msg: str) -> None:
+        try:
+            self.root.after(0, lambda: self._log(msg))
+        except Exception:
+            pass
+
     def _log(self, msg: str) -> None:
-        self.log_text.insert("end", msg + "\n")
-        self.log_text.see("end")
+        try:
+            self.log_text.insert("end", msg + "\n")
+            self.log_text.see("end")
+        except tk.TclError:
+            pass
+
+    def _set_running_safe(self, running: bool) -> None:
+        try:
+            self.root.after(0, lambda: self._set_running(running))
+        except Exception:
+            pass
 
     def _set_running(self, running: bool) -> None:
         if running:
@@ -178,46 +195,109 @@ class VisionEngineApp:
             self.stop_btn.configure(state="disabled", bg="#1e293b", fg="#94a3b8")
 
     def _run_engine(self) -> None:
-        if self.process is not None:
+        if self.process is not None or self._server_thread is not None:
             return
 
-        venv_python = BASE_DIR / ".venv" / "Scripts" / "python.exe"
+        self._kill_port()
+
+        if IS_FROZEN:
+            self._run_engine_in_process()
+        else:
+            self._run_engine_subprocess()
+
+    def _run_engine_subprocess(self) -> None:
+        venv_python = BASE_DIR / ".venv" / "Scripts" / "pythonw.exe"
         python = venv_python if venv_python.exists() else Path(sys.executable)
 
-        def start() -> None:
-            self._log("Starting VisionPOS Engine...")
-            self._set_running(True)
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
 
+        def read_stream(stream, tag: str) -> None:
             try:
-                self.process = subprocess.Popen(
-                    [
-                        str(python),
-                        "-m",
-                        "uvicorn",
-                        "api:app",
-                        "--host", HOST,
-                        "--port", str(PORT),
-                        "--log-level", "info",
-                    ],
+                for line in iter(stream.readline, ""):
+                    if line:
+                        self.root.after(0, lambda l=line.rstrip(): self._log("[%s] %s" % (tag, l)))
+            except Exception:
+                pass
+
+        def start() -> None:
+            self._log("Starting VisionPOS Engine on http://%s:%d ..." % (HOST, PORT))
+            self.root.after(0, lambda: self._set_running(True))
+
+            proc = None
+            try:
+                proc = subprocess.Popen(
+                    [str(python), "-m", "uvicorn", "api:app",
+                     "--host", HOST, "--port", str(PORT), "--log-level", "info"],
                     cwd=str(BASE_DIR),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
                     creationflags=subprocess.CREATE_NO_WINDOW,
                 )
+                self.process = proc
 
-                for line in self.process.stdout:
-                    self._log(line.rstrip())
+                tout = threading.Thread(target=read_stream, args=(proc.stdout, "OUT"), daemon=True)
+                terr = threading.Thread(target=read_stream, args=(proc.stderr, "ERR"), daemon=True)
+                tout.start()
+                terr.start()
+
+                proc.wait()
+                tout.join(timeout=2)
+                terr.join(timeout=2)
             except Exception as e:
-                self._log(f"Error: {e}")
+                self._log_safe("Error: %s" % e)
             finally:
                 self.process = None
-                self.root.after(0, lambda: self._set_running(False))
-                self._log("Engine stopped.")
+                self._set_running_safe(False)
+                self._log_safe("Process exited (code %d)." % (proc.returncode if proc else -1))
 
         threading.Thread(target=start, daemon=True).start()
 
+    def _run_engine_in_process(self) -> None:
+        self._log("Starting VisionPOS Engine (in-process) on http://%s:%d ..." % (HOST, PORT))
+        self._set_running(True)
+
+        def serve() -> None:
+            try:
+                import uvicorn
+                import api
+                uvicorn.run(api.app, host=HOST, port=PORT, log_level="info")
+            except Exception as e:
+                self._log_safe("Server error: %s" % e)
+            finally:
+                self._server_thread = None
+                self._set_running_safe(False)
+                self._log_safe("Server stopped.")
+
+        self._server_thread = threading.Thread(target=serve, daemon=True)
+        self._server_thread.start()
+
+    def _kill_port(self) -> None:
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            pids = set()
+            for line in result.stdout.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 5 and ":%d" % PORT in (parts[1] if len(parts) > 1 else ""):
+                    pid_str = parts[-1]
+                    if pid_str.isdigit():
+                        pids.add(int(pid_str))
+            for pid in pids:
+                try:
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     def _stop_engine(self) -> None:
+        if IS_FROZEN and self._server_thread is not None:
+            import uvicorn
+            self._log("Stopping in-process server...")
+            self._server_thread = None
+            return
+
         if self.process is not None:
             self.process.terminate()
             try:
@@ -229,31 +309,37 @@ class VisionEngineApp:
 
     def _kill_all(self) -> None:
         self._stop_engine()
-        self._log("Killing any lingering processes on port %d..." % PORT)
+        self._log_safe("Killing any lingering processes on port %d..." % PORT)
         try:
             result = subprocess.run(
                 ["netstat", "-ano"], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
             )
             pids = set()
             for line in result.stdout.splitlines():
-                if ":%d " % PORT in line or ":%d " % PORT in line.replace("0.0.0.0", "127.0.0.1"):
-                    parts = line.strip().split()
-                    if parts and parts[-1].isdigit():
-                        pids.add(int(parts[-1]))
+                parts = line.strip().split()
+                if len(parts) >= 5 and ":%d" % PORT in (parts[1] if len(parts) > 1 else ""):
+                    pid_str = parts[-1]
+                    if pid_str.isdigit():
+                        pids.add(int(pid_str))
             for pid in pids:
                 try:
                     subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    self._log("Killed PID %d" % pid)
+                    self._log_safe("Killed PID %d" % pid)
                 except Exception:
                     pass
         except Exception as e:
-            self._log("Kill all error: %s" % e)
-        self._log("All processes on port %d cleared." % PORT)
-        self.root.after(0, lambda: self._set_running(False))
+            self._log_safe("Kill all error: %s" % e)
+        self._log_safe("All processes on port %d cleared." % PORT)
+        self._set_running_safe(False)
 
     def run(self) -> None:
-        self.root.mainloop()
-        self._stop_engine()
+        try:
+            self.root.mainloop()
+        finally:
+            try:
+                self._stop_engine()
+            except Exception:
+                pass
 
 
 def main() -> None:
