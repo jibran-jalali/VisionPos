@@ -6,7 +6,7 @@ import { Camera, Upload, Trash2, Save, Videotape, Square, Loader2 } from "lucide
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { processProductImages, processProductVideo } from "@/lib/vision-agent";
+import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 export function AddProductFlow() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export function AddProductFlow() {
   const [reorderLevel, setReorderLevel] = useState("5");
   const [error, setError] = useState("");
 
-  const [status, setStatus] = useState("Fill product details and record a short video. One click saves everything.");
+  const [status, setStatus] = useState("Fill product details and record a short video. One click saves everything. No external agent needed.");
   const [isSaving, setIsSaving] = useState(false);
   const [tab, setTab] = useState<"record" | "upload">("record");
   const [isRecording, setIsRecording] = useState(false);
@@ -197,37 +197,38 @@ export function AddProductFlow() {
         return;
       }
 
-      const { productId, name: productName, sku: productSku, barcode: productBarcode } = resData;
-      const hasVision = capturedFrames.length > 0 || video !== null;
+      const { productId } = resData;
+      const hasVision = capturedFrames.length > 0;
 
       if (hasVision) {
-        setStatus("Building vision profile...");
+        setStatus("Building vision profile in browser...");
 
-        let result;
-        if (capturedFrames.length > 0) {
-          const files = capturedFrames.map(
-            (f, i) => new File([f.blob], `frame-${i + 1}.jpg`, { type: "image/jpeg" }),
-          );
-          result = await processProductImages({ productId, productName, sku: productSku, barcode: productBarcode, images: files });
-        } else {
-          result = await processProductVideo({ productId, productName, sku: productSku, barcode: productBarcode, video: video! });
+        const embeddings: number[][] = [];
+        for (const frame of capturedFrames) {
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = frame.url;
+          });
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext("2d")!.drawImage(img, 0, 0);
+          embeddings.push(computeHistogram(canvas));
         }
 
-        await fetch(`/api/products/${productId}/vision-profile`, {
+        await fetch(`/api/products/${productId}/embeddings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            frameCount: result.frame_count,
-            embeddingModel: result.embedding_model,
-            profileStatus: result.profile_status,
-          }),
+          body: JSON.stringify({ embeddings, frameCount: embeddings.length, embeddingModel: "hsv_histogram_v1" }),
         });
       }
 
       stopCamera();
       router.refresh();
     } catch {
-      setError("Network error. Make sure the server and Vision Module are running.");
+      setError("Could not save product. Check your connection.");
     } finally {
       setIsSaving(false);
     }

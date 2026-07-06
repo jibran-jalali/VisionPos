@@ -1,11 +1,28 @@
 "use client";
 
-import { Camera, ScanLine, StopCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Barcode, Camera, ScanLine, StopCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { matchFrame } from "@/lib/vision-agent";
+import { detectBarcode, isBarcodeSupported } from "@/lib/browser-vision/barcode";
+import { matchFrame } from "@/lib/browser-vision/histogram";
+import type { ProfileData, MatchResult } from "@/lib/browser-vision/types";
 import type { CheckoutProduct } from "@/components/pos/checkout-console";
+
+let cachedProfiles: ProfileData[] | null = null;
+
+async function loadProfiles(): Promise<ProfileData[]> {
+  if (cachedProfiles) return cachedProfiles;
+  try {
+    const res = await fetch("/api/products/embeddings");
+    if (!res.ok) return [];
+    const data = await res.json();
+    cachedProfiles = data.profiles || [];
+  } catch {
+    cachedProfiles = [];
+  }
+  return cachedProfiles!;
+}
 
 export function CameraScanner({
   products,
@@ -17,9 +34,50 @@ export function CameraScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [status, setStatus] = useState("Camera is off. Start it to scan products.");
+  const [status, setStatus] = useState("Camera is off.");
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [lastBarcode, setLastBarcode] = useState<string | null>(null);
+  const barcodeSupported = isBarcodeSupported();
+  const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const tryBarcodeMatch = useCallback(
+    (barcode: string) => {
+      setLastBarcode(barcode);
+      const product = products.find((p) => p.sku === barcode || p.id === barcode);
+      if (product) {
+        onProductMatched(product);
+        setStatus(`Barcode matched: ${product.name}`);
+        return true;
+      }
+      return false;
+    },
+    [products, onProductMatched],
+  );
+
+  useEffect(() => {
+    if (!isCameraOn || !videoRef.current) {
+      if (scanTimerRef.current) clearInterval(scanTimerRef.current);
+      return;
+    }
+
+    loadProfiles();
+
+    if (barcodeSupported) {
+      scanTimerRef.current = setInterval(async () => {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        const barcode = await detectBarcode(video);
+        if (barcode && barcode !== lastBarcode) {
+          tryBarcodeMatch(barcode);
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (scanTimerRef.current) clearInterval(scanTimerRef.current);
+    };
+  }, [isCameraOn, barcodeSupported, lastBarcode, tryBarcodeMatch]);
 
   async function startCamera() {
     try {
@@ -28,72 +86,61 @@ export function CameraScanner({
         audio: false,
       });
       streamRef.current = stream;
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-
       setIsCameraOn(true);
-      setStatus("Camera ready. Syncing barcodes to Vision Module...");
-
-      fetch("/api/sync-vision-products", { method: "POST" }).catch(() => {});
+      setStatus(barcodeSupported ? "Camera ready. Barcode scanning active." : "Camera ready. Click Scan for vision match.");
     } catch {
       setStatus("Camera permission denied or no webcam found.");
     }
   }
 
   function stopCamera() {
+    if (scanTimerRef.current) clearInterval(scanTimerRef.current);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setIsCameraOn(false);
     setStatus("Camera stopped.");
+    setLastBarcode(null);
   }
 
   async function scanItem() {
-    if (!videoRef.current || !canvasRef.current) {
-      setStatus("Start the camera first.");
-      return;
-    }
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
     canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     setIsScanning(true);
-    setStatus("Scanning frame with Vision Module...");
+    setStatus("Matching frame with vision profiles...");
 
     try {
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      if (!blob) { setStatus("Could not capture frame."); return; }
 
-      if (!blob) {
-        setStatus("Could not capture camera frame.");
+      const profiles = await loadProfiles();
+      if (profiles.length === 0) {
+        setStatus("No vision profiles available. Train products first.");
         return;
       }
 
-      const result = await matchFrame(blob);
-
-      if (!result.match) {
-        const best = result.candidates[0];
-        setStatus(best ? `No confident match. Best: ${best.product_name || best.product_id} (${Math.round(best.score * 100)}%).` : "No product profile matched. Upload a product video first.");
+      const result: MatchResult | null = await matchFrame(blob, profiles);
+      if (!result || !result.accepted) {
+        setStatus(result ? `Low confidence (${Math.round(result.score * 100)}%). Need more frames.` : "No match found.");
         return;
       }
 
-      const product = products.find((item) => item.id === result.match?.product_id);
-
-      if (!product) {
-        setStatus("Matched a product profile that is not in this checkout catalog.");
-        return;
-      }
+      const product = products.find((p) => p.id === result.productId);
+      if (!product) { setStatus("Matched profile not in checkout catalog."); return; }
 
       onProductMatched(product);
-      const via = result.match.match_type === "barcode" ? "barcode" : "visual";
-      const icon = result.match.match_type === "barcode" ? "Barcode" : "Vision";
-      setStatus(`${icon}: ${product.name} (${Math.round(result.match.score * 100)}% via ${via}).`);
+      setStatus(`Vision match: ${product.name} (${Math.round(result.score * 100)}%).`);
     } catch {
-      setStatus("Vision Module is not loaded or frame matching failed.");
+      setStatus("Frame matching failed. Try again.");
     } finally {
       setIsScanning(false);
     }
@@ -104,9 +151,14 @@ export function CameraScanner({
   return (
     <Card className="mb-5 p-5">
       <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
-        <div className="overflow-hidden rounded-[28px] border border-[#dfebf3] bg-[#060b1f]">
+        <div className="relative overflow-hidden rounded-[28px] border border-[#dfebf3] bg-[#060b1f]">
           <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
           <canvas ref={canvasRef} className="hidden" />
+          {lastBarcode && (
+            <div className="absolute bottom-3 left-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
+              <Barcode className="mr-1 inline h-3 w-3" />{lastBarcode}
+            </div>
+          )}
         </div>
         <div className="flex flex-col justify-between gap-4">
           <div>

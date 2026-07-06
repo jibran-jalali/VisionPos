@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AgentControlPanel } from "@/components/pos/agent-control-panel";
 import { CameraScanner } from "@/components/pos/camera-scanner";
-import { VisionAgentStatus } from "@/components/pos/vision-agent-status";
 import { formatMoney } from "@/lib/currency";
 
 export type CheckoutProduct = {
@@ -71,7 +69,10 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
         </header>
 
         <div className="mb-5 grid gap-4 md:grid-cols-3">
-          <VisionAgentStatus />
+          <Card className="p-5">
+            <p className="text-sm font-bold text-[#607080]">Camera Checkout</p>
+            <p className="mt-2 text-xl font-semibold text-[#060b1f]">Vision + Barcode</p>
+          </Card>
           <Card className="p-5">
             <p className="text-sm font-bold text-[#607080]">Invoice Mode</p>
             <p className="mt-2 text-xl font-semibold text-[#060b1f]">Receipt + A4</p>
@@ -80,10 +81,6 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
             <p className="text-sm font-bold text-[#607080]">Cashier</p>
             <p className="mt-2 text-xl font-semibold text-[#060b1f]">{cashierName}</p>
           </Card>
-        </div>
-
-        <div className="mb-5">
-          <AgentControlPanel />
         </div>
 
         <CameraScanner products={products} onProductMatched={addToCart} />

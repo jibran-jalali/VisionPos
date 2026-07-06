@@ -87,12 +87,12 @@ export default async function DashboardPage() {
         <Card className="vision-gradient text-white">
           <div className="flex h-full flex-col justify-between gap-8">
             <div>
-              <Badge variant="dark" className="bg-white/18 text-white">Vision module</Badge>
-              <h2 className="mt-5 text-3xl font-semibold leading-tight">Ready for local recognition.</h2>
-              <p className="mt-4 leading-7 text-white/80">Cashier and admin checkout screens connect to the local Python agent by REST on port 8767.</p>
+              <Badge variant="dark" className="bg-white/18 text-white">Browser vision</Badge>
+              <h2 className="mt-5 text-3xl font-semibold leading-tight">No installation needed.</h2>
+              <p className="mt-4 leading-7 text-white/80">Barcode scanning and visual matching run entirely in the browser. Zero downloads, zero setup.</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-3xl bg-white/16 p-4"><PackageSearch className="mb-3 h-6 w-6" /><p className="text-sm font-bold">Profiles</p></div>
+              <div className="rounded-3xl bg-white/16 p-4"><PackageSearch className="mb-3 h-6 w-6" /><p className="text-sm font-bold">Barcode</p></div>
               <div className="rounded-3xl bg-white/16 p-4"><ReceiptText className="mb-3 h-6 w-6" /><p className="text-sm font-bold">Invoices</p></div>
               <div className="rounded-3xl bg-white/16 p-4"><TriangleAlert className="mb-3 h-6 w-6" /><p className="text-sm font-bold">Stock</p></div>
             </div>

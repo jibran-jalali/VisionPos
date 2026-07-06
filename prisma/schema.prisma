@@ -333,6 +333,7 @@ model ProductVisualProfile {
   embeddingModel      String?
   profileStatus       VisualProfileStatus @default(NOT_STARTED)
   confidenceThreshold Decimal             @default(0.82) @db.Decimal(4, 3)
+  embeddings          Json?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 

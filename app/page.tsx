@@ -28,7 +28,7 @@ export default function HomePage() {
             with <span className="vision-text-gradient">VisionPOS AI</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#607080]">
-            VisionPOS starts as a reliable cloud POS with inventory, invoices, roles, and printing. The architecture is ready for a low-cost webcam recognition layer powered by a local Python vision agent.
+            VisionPOS runs entirely in your browser. Barcode scanning, visual product matching, inventory, invoices, roles, and printing — everything works directly from the cloud. No downloads, no setup.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/dashboard">
