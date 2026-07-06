@@ -1,0 +1,21 @@
+node_modules
+.next
+.env
+.env.local
+.vercel
+dist
+*.tsbuildinfo
+prisma/dev.db
+vision-agent/.venv
+vision-agent/local_cache
+vision-agent/dist
+vision-agent/build
+vision-agent/*.spec
+vision-agent/test_barcode.png
+vision-agent/test_barcode.svg
+public/agent/VisionPOS-Engine.exe
+public/agent/engine_ui.pyw
+public/agent/setup-engine.bat
+/vision pos favicon.png
+/vision pos logo.png
+/vision pos logo transacprent.png
