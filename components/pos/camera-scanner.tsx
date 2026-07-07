@@ -1,10 +1,10 @@
 "use client";
 
 import { Barcode, Loader2, ScanLine } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { detectBarcode, isBarcodeSupported } from "@/lib/browser-vision/barcode";
-import { matchFrame } from "@/lib/browser-vision/histogram";
+import { matchCanvas } from "@/lib/browser-vision/histogram";
 import type { ProfileData } from "@/lib/browser-vision/types";
 import type { CheckoutProduct } from "@/components/pos/checkout-console";
 
@@ -38,10 +38,22 @@ export function CameraScanner({
   const [lastBarcodeDisplay, setLastBarcodeDisplay] = useState<string | null>(null);
   const lastBarcodeRef = useRef<string | null>(null);
   const lastBarcodeTimeRef = useRef(0);
+  const lastBarcodeScanAtRef = useRef(0);
+  const lastVisionScanAtRef = useRef(0);
+  const lastVisionProductRef = useRef<string | null>(null);
+  const lastVisionProductTimeRef = useRef(0);
   const scanningRef = useRef(false);
   const visionProfilesRef = useRef<ProfileData[]>([]);
-  const frameSkipRef = useRef(0);
   const barcodeSupported = isBarcodeSupported();
+  const productByCode = useMemo(() => {
+    const map = new Map<string, CheckoutProduct>();
+    for (const product of products) {
+      if (product.barcode) map.set(product.barcode, product);
+      map.set(product.sku, product);
+    }
+    return map;
+  }, [products]);
+  const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
 
   const tryMatchRef = useRef(async () => {});
 
@@ -50,14 +62,14 @@ export function CameraScanner({
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return;
 
-    if (barcodeSupported) {
+    const now = Date.now();
+
+    if (barcodeSupported && now - lastBarcodeScanAtRef.current > 120) {
+      lastBarcodeScanAtRef.current = now;
       const barcode = await detectBarcode(video);
       if (barcode) {
-        const now = Date.now();
         if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
-          const product = products.find(
-            (p) => p.barcode === barcode || p.sku === barcode
-          );
+          const product = productByCode.get(barcode);
           if (product) {
             lastBarcodeRef.current = barcode;
             lastBarcodeTimeRef.current = now;
@@ -70,19 +82,23 @@ export function CameraScanner({
       }
     }
 
-    frameSkipRef.current++;
-    if (frameSkipRef.current % 15 !== 0) return;
+    if (now - lastVisionScanAtRef.current < 650) return;
+    lastVisionScanAtRef.current = now;
 
     if (visionProfilesRef.current.length > 0) {
-      canvas.width = video.videoWidth || 320;
-      canvas.height = video.videoHeight || 240;
+      const sourceW = video.videoWidth || 640;
+      const sourceH = video.videoHeight || 480;
+      const scale = Math.min(320 / sourceW, 320 / sourceH, 1);
+      canvas.width = Math.max(1, Math.round(sourceW * scale));
+      canvas.height = Math.max(1, Math.round(sourceH * scale));
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.6));
-      if (!blob) return;
-      const result = await matchFrame(blob, visionProfilesRef.current);
+      const result = matchCanvas(canvas, visionProfilesRef.current);
       if (result?.accepted) {
-        const product = products.find((p) => p.id === result.productId);
-        if (product) {
+        const product = productById.get(result.productId);
+        const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 3000;
+        if (product && canAdd) {
+          lastVisionProductRef.current = result.productId;
+          lastVisionProductTimeRef.current = now;
           onProductMatched(product);
         }
       }

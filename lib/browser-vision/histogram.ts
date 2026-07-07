@@ -63,6 +63,45 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
+export function matchHistogram(query: number[], profiles: ProfileData[]): MatchResult | null {
+  type ScoredMatch = { productId: string; productName: string | null; sku: string | null; score: number };
+  let best: ScoredMatch | null = null;
+  let secondBest: ScoredMatch | null = null;
+
+  for (const profile of profiles) {
+    if (!profile.embeddings || profile.embeddings.length === 0) continue;
+    let maxScore = 0;
+    for (const emb of profile.embeddings) {
+      const score = cosineSimilarity(query, emb);
+      if (score > maxScore) maxScore = score;
+    }
+    if (!best || maxScore > best.score) {
+      secondBest = best;
+      best = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
+    } else if (!secondBest || maxScore > secondBest.score) {
+      secondBest = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
+    }
+  }
+
+  if (!best) return null;
+
+  const margin = best.score - (secondBest?.score ?? 0);
+  const accepted = best.score >= CONFIDENCE_THRESHOLD && margin > 0.05;
+
+  return {
+    productId: best.productId,
+    productName: best.productName,
+    sku: best.sku,
+    score: Math.round(best.score * 10000) / 10000,
+    accepted,
+    matchType: "vision",
+  };
+}
+
+export function matchCanvas(canvas: HTMLCanvasElement, profiles: ProfileData[]): MatchResult | null {
+  return matchHistogram(computeHistogram(canvas), profiles);
+}
+
 export function matchFrame(frameBlob: Blob, profiles: ProfileData[]): Promise<MatchResult | null> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -74,43 +113,7 @@ export function matchFrame(frameBlob: Blob, profiles: ProfileData[]): Promise<Ma
       canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const query = computeHistogram(canvas);
-
-      type ScoredMatch = { productId: string; productName: string | null; sku: string | null; score: number };
-      let best: ScoredMatch | null = null;
-      let secondBest: ScoredMatch | null = null;
-
-      for (const profile of profiles) {
-        if (!profile.embeddings || profile.embeddings.length === 0) continue;
-        let maxScore = 0;
-        for (const emb of profile.embeddings) {
-          const score = cosineSimilarity(query, emb);
-          if (score > maxScore) maxScore = score;
-        }
-        if (!best || maxScore > best.score) {
-          secondBest = best;
-          best = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
-        } else if (!secondBest || maxScore > secondBest.score) {
-          secondBest = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
-        }
-      }
-
-      if (!best) {
-        resolve(null);
-        return;
-      }
-
-      const margin = best.score - (secondBest?.score ?? 0);
-      const accepted = best.score >= CONFIDENCE_THRESHOLD && margin > 0.05;
-
-      resolve({
-        productId: best.productId,
-        productName: best.productName,
-        sku: best.sku,
-        score: Math.round(best.score * 10000) / 10000,
-        accepted,
-        matchType: "vision",
-      });
+      resolve(matchCanvas(canvas, profiles));
     };
     img.onerror = () => reject(new Error("Could not decode image"));
     img.src = URL.createObjectURL(frameBlob);

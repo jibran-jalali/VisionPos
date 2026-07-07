@@ -1,6 +1,7 @@
 "use client";
 
 import { Minus, Plus, Printer, Search, Trash2, Wifi } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,25 @@ type CartItem = {
   quantity: number;
 };
 
+type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOBILE_WALLET" | "OTHER";
+type InvoiceFormat = "RECEIPT" | "A4";
+
+const paymentMethods: { value: PaymentMethod; label: string; helper: string }[] = [
+  { value: "CASH", label: "Cash", helper: "Customer paid cash" },
+  { value: "CARD", label: "Card", helper: "Debit / credit card" },
+  { value: "MOBILE_WALLET", label: "Wallet", helper: "JazzCash / Easypaisa" },
+  { value: "BANK_TRANSFER", label: "Bank", helper: "Bank transfer" },
+];
+
 export function CheckoutConsole({ products, cashierName }: { products: CheckoutProduct[]; cashierName: string }) {
+  const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [invoiceFormat, setInvoiceFormat] = useState<InvoiceFormat>("RECEIPT");
+  const [lastInvoice, setLastInvoice] = useState<{ invoiceId: string; invoiceNumber: string } | null>(null);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const discount = subtotal > 1000 ? 100 : 0;
@@ -36,6 +54,8 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
   const total = subtotal - discount + tax;
 
   function addToCart(product: CheckoutProduct) {
+    setLastInvoice(null);
+    setCheckoutError("");
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
 
@@ -53,6 +73,50 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
         .map((item) => (item.id === id ? { ...item, quantity: Math.max(0, item.quantity + amount) } : item))
         .filter((item) => item.quantity > 0),
     );
+  }
+
+  function openPayment(format: InvoiceFormat = "RECEIPT") {
+    if (cart.length === 0 || isCompleting) return;
+    setInvoiceFormat(format);
+    setPaymentOpen(true);
+    setCheckoutError("");
+  }
+
+  async function completeSale() {
+    if (cart.length === 0 || isCompleting) return;
+    setCheckoutError("");
+    setIsCompleting(true);
+
+    try {
+      const res = await fetch("/api/checkout/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceFormat,
+          paymentMethod,
+          items: cart.map((item) => ({ productId: item.id, quantity: item.quantity })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCheckoutError(data.error || "Could not complete sale.");
+        return;
+      }
+
+      setCart([]);
+      setPaymentOpen(false);
+      setLastInvoice({ invoiceId: data.invoiceId, invoiceNumber: data.invoiceNumber });
+      router.refresh();
+    } catch {
+      setCheckoutError("Could not complete sale. Check your connection.");
+    } finally {
+      setIsCompleting(false);
+    }
+  }
+
+  function openInvoice(format: InvoiceFormat) {
+    if (!lastInvoice) return;
+    window.open(`/invoices/${lastInvoice.invoiceId}/${format === "A4" ? "a4" : "receipt"}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -161,11 +225,86 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
           </div>
         </div>
 
+        {checkoutError && (
+          <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {checkoutError}
+          </div>
+        )}
+
+        {lastInvoice && (
+          <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            Transaction completed: {lastInvoice.invoiceNumber}. Ready for next checkout.
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button size="sm" variant="soft" onClick={() => openInvoice("RECEIPT")}>Open Receipt</Button>
+              <Button size="sm" variant="soft" onClick={() => openInvoice("A4")}>Open A4</Button>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <Button size="touch" variant="soft"><Printer className="mr-2 h-5 w-5" /> Print</Button>
-          <Button size="touch" variant="gradient" disabled={cart.length === 0}>Complete Sale</Button>
+          <Button size="touch" variant="soft" onClick={() => openPayment("RECEIPT")} disabled={cart.length === 0 || isCompleting}>
+            <Printer className="mr-2 h-5 w-5" /> Receipt
+          </Button>
+          <Button size="touch" variant="gradient" onClick={() => openPayment("RECEIPT")} disabled={cart.length === 0 || isCompleting}>
+            Complete Sale
+          </Button>
+          <Button className="col-span-2" size="lg" variant="soft" onClick={() => openPayment("A4")} disabled={cart.length === 0 || isCompleting}>
+            A4 Invoice
+          </Button>
         </div>
       </aside>
+
+      {paymentOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#060b1f]/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[32px] border border-[#dfebf3] bg-white p-6 shadow-[0_32px_90px_rgba(6,11,31,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Badge variant="blue">Payment</Badge>
+                <h3 className="mt-3 text-2xl font-semibold text-[#060b1f]">Select payment method</h3>
+                <p className="mt-1 text-sm font-medium text-[#607080]">Mark the order paid before storing the transaction.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentOpen(false)}
+                disabled={isCompleting}
+                className="rounded-2xl px-3 py-2 text-sm font-bold text-[#607080] hover:bg-[#f1f7fb]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-[24px] bg-[#f1f7fb] p-4">
+              <div className="flex justify-between text-sm font-bold text-[#607080]"><span>Items</span><span>{cart.reduce((sum, item) => sum + item.quantity, 0)}</span></div>
+              <div className="mt-2 flex justify-between text-sm font-bold text-[#607080]"><span>Invoice</span><span>{invoiceFormat === "A4" ? "A4" : "Receipt"}</span></div>
+              <div className="mt-4 flex items-center justify-between border-t border-[#dfebf3] pt-4">
+                <span className="text-base font-semibold text-[#060b1f]">Amount due</span>
+                <strong className="text-3xl font-semibold text-[#060b1f]">{formatMoney(total)}</strong>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(method.value)}
+                  disabled={isCompleting}
+                  className={`rounded-[22px] border p-4 text-left transition ${paymentMethod === method.value ? "border-[#15bdf2] bg-[#eef9ff] shadow-[0_16px_34px_rgba(21,189,242,0.16)]" : "border-[#dfebf3] bg-[#fbfdff] hover:border-[#15bdf2]"}`}
+                >
+                  <span className="block font-semibold text-[#060b1f]">{method.label}</span>
+                  <span className="mt-1 block text-xs font-medium text-[#607080]">{method.helper}</span>
+                </button>
+              ))}
+            </div>
+
+            {checkoutError && <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{checkoutError}</div>}
+
+            <Button className="mt-5 w-full" size="touch" variant="gradient" onClick={completeSale} disabled={isCompleting}>
+              {isCompleting ? "Saving paid transaction..." : `Mark Paid (${paymentMethods.find((method) => method.value === paymentMethod)?.label})`}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
