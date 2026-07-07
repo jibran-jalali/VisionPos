@@ -13,5 +13,5 @@ export type MatchResult = {
   sku: string | null;
   score: number;
   accepted: boolean;
-  matchType: "barcode" | "vision";
+  matchType: "barcode" | "vision" | "ocr";
 };

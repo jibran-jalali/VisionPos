@@ -6,6 +6,7 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   sharp: true
+  tesseract.js: true
 
 onlyBuiltDependencies:
   - '@prisma/engines'

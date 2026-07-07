@@ -42,6 +42,7 @@ export function CameraScanner({
   const lastVisionScanAtRef = useRef(0);
   const lastVisionProductRef = useRef<string | null>(null);
   const lastVisionProductTimeRef = useRef(0);
+  const lastOcrTimeRef = useRef(0);
   const scanningRef = useRef(false);
   const visionProfilesRef = useRef<ProfileData[]>([]);
   const visionConsecutiveProductRef = useRef<string | null>(null);
@@ -115,6 +116,29 @@ export function CameraScanner({
         visionConsecutiveProductRef.current = null;
         visionConsecutiveCountRef.current = 0;
       }
+    }
+
+    if (now - lastOcrTimeRef.current > 5000 && products.length > 0) {
+      lastOcrTimeRef.current = now;
+      const sourceW = video.videoWidth || 640;
+      const sourceH = video.videoHeight || 480;
+      canvas.width = Math.max(1, Math.round(sourceW * 0.5));
+      canvas.height = Math.max(1, Math.round(sourceH * 0.5));
+      canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        const { recognizeText, fuzzyMatchProduct } = await import("@/lib/browser-vision/ocr");
+        const text = await recognizeText(canvas, 4000);
+        if (text) {
+          const match = fuzzyMatchProduct(text, products);
+          if (match) {
+            const product = productById.get(match.productId);
+            if (product) {
+              setStatus(`OCR matched: ${product.name}`);
+              onProductMatched(product);
+            }
+          }
+        }
+      } catch {}
     }
   };
 
