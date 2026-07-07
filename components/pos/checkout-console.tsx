@@ -103,10 +103,14 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
         return;
       }
 
+      if (!data.invoiceId) {
+        setCheckoutError("Sale saved but invoice could not be generated. Check with admin.");
+        return;
+      }
+
       setCart([]);
       setPaymentOpen(false);
       setLastInvoice({ invoiceId: data.invoiceId, invoiceNumber: data.invoiceNumber });
-      router.refresh();
     } catch {
       setCheckoutError("Could not complete sale. Check your connection.");
     } finally {
