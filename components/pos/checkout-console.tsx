@@ -13,6 +13,7 @@ export type CheckoutProduct = {
   id: string;
   name: string;
   sku: string;
+  barcode: string | null;
   price: number;
   stock: number;
   category: string;

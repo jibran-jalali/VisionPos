@@ -28,6 +28,7 @@ export default async function CheckoutPage() {
     id: product.id,
     name: product.name,
     sku: product.sku,
+    barcode: product.barcode,
     price: Number(product.price),
     stock: product.inventory.reduce((sum, item) => sum + item.quantity, 0),
     category: product.category?.name || "Uncategorized",
