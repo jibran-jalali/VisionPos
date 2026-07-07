@@ -350,7 +350,7 @@ export function AddProductFlow() {
               <Loader2 className="h-8 w-8 animate-spin text-white/70" />
             </div>
           )}
-          <video ref={videoRef} autoPlay muted playsInline className="h-44 w-full object-cover" />
+          <video ref={videoRef} autoPlay muted playsInline className="aspect-square w-full object-cover" />
           <canvas ref={canvasRef} className="hidden" />
           <video ref={extractorRef} className="hidden" muted playsInline />
           {cameraState === "ready" && (

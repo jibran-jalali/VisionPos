@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { StoreLogoForm } from "@/components/settings/store-logo-form";
+import { PrinterSettings } from "@/components/settings/printer-settings";
+import { VisionToggle } from "@/components/settings/vision-toggle";
+import { AutoPrintToggle } from "@/components/settings/auto-print-toggle";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Eye, Printer } from "lucide-react";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -40,6 +44,7 @@ export default async function SettingsPage() {
             <Button variant="gradient" disabled>Editing coming next</Button>
           </div>
         </Card>
+
         <Card>
           <CardHeader>
             <div>
@@ -49,6 +54,7 @@ export default async function SettingsPage() {
           </CardHeader>
           <StoreLogoForm initialLogoUrl={business.logoUrl} />
         </Card>
+
         <Card>
           <CardHeader>
             <div>
@@ -61,6 +67,43 @@ export default async function SettingsPage() {
             <Input defaultValue={`Currency: ${business.settings?.currencyCode || "PKR"}`} readOnly />
             <Input defaultValue={business.settings?.invoiceFooter || "Thank you for shopping with us."} readOnly />
             <Button variant="primary" disabled>Editing coming next</Button>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-[#6F35F5]" />
+              <div>
+                <CardTitle>Vision System</CardTitle>
+                <CardDescription>Enable or disable camera-based barcode + product scanning for cashiers.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <div className="grid gap-4">
+            <VisionToggle initialEnabled={business.settings?.visionEnabled ?? true} />
+            <p className="text-xs text-[#607080]">
+              When OFF, cashiers will only see the product grid. Camera, barcode scan, vision matching, and OCR are all disabled.
+            </p>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Printer className="h-5 w-5 text-[#6F35F5]" />
+              <div>
+                <CardTitle>Receipt Printer</CardTitle>
+                <CardDescription>Connect a USB thermal receipt printer (ESC/POS). Works in Chrome and Edge.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <div className="grid gap-4">
+            <PrinterSettings initialConnected={false} />
+            <AutoPrintToggle initialEnabled={business.settings?.autoPrint ?? false} />
+            <p className="text-xs text-[#607080]">
+              Auto-print automatically prints a receipt after each sale. You can also print manually from the invoice popup.
+            </p>
           </div>
         </Card>
       </div>

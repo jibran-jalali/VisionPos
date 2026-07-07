@@ -12,18 +12,18 @@ export default async function CheckoutPage() {
     redirect("/cashier/login");
   }
 
-  const products = await prisma.product.findMany({
-    where: {
-      businessId: session.user.businessId,
-      isActive: true,
-    },
-    include: {
-      category: true,
-      inventory: true,
-      variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
-    },
-    orderBy: { name: "asc" },
-  });
+  const [products, settings] = await prisma.$transaction([
+    prisma.product.findMany({
+      where: { businessId: session.user.businessId, isActive: true },
+      include: {
+        category: true,
+        inventory: true,
+        variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.businessSettings.findUnique({ where: { businessId: session.user.businessId } }),
+  ]);
 
   const checkoutProducts: CheckoutProduct[] = products.map((product, index) => ({
     id: product.id,
@@ -37,5 +37,12 @@ export default async function CheckoutPage() {
     variants: product.variants.map((v) => ({ id: v.id, name: v.name, priceAdj: Number(v.priceAdj) })),
   }));
 
-  return <CheckoutConsole products={checkoutProducts} cashierName={session.user.name || session.user.email || "Cashier"} />;
+  return (
+    <CheckoutConsole
+      products={checkoutProducts}
+      cashierName={session.user.name || session.user.email || "Cashier"}
+      visionEnabled={settings?.visionEnabled ?? true}
+      autoPrint={settings?.autoPrint ?? false}
+    />
+  );
 }

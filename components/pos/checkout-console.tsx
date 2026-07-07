@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { CameraScanner } from "@/components/pos/camera-scanner";
 import { InvoicePopup } from "@/components/pos/invoice-popup";
 import { formatMoney } from "@/lib/currency";
+import { isPrinterConnected, printReceipt } from "@/lib/escpos-printer";
+import { buildReceiptLines } from "@/lib/receipt-builder";
 import type { InvoicePrintData } from "@/lib/invoice-data";
 
 export type CheckoutProduct = {
@@ -42,7 +44,7 @@ const paymentMethods: { value: PaymentMethod; label: string; helper: string }[] 
   { value: "BANK_TRANSFER", label: "Bank", helper: "Bank transfer" },
 ];
 
-export function CheckoutConsole({ products, cashierName }: { products: CheckoutProduct[]; cashierName: string }) {
+export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrint }: { products: CheckoutProduct[]; cashierName: string; visionEnabled: boolean; autoPrint: boolean }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutError, setCheckoutError] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
@@ -142,6 +144,29 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
       setPaymentOpen(false);
       setInvoicePreviewData(data.invoiceData);
       setShowInvoicePopup(true);
+
+      if (autoPrint && isPrinterConnected() && data.invoiceData) {
+        try {
+          const lines = buildReceiptLines({
+            businessName: data.invoiceData.businessName,
+            storeName: data.invoiceData.storeName,
+            storeAddress: data.invoiceData.storeAddress || undefined,
+            invoiceNumber: data.invoiceData.invoiceNumber,
+            createdAt: data.invoiceData.createdAt,
+            cashierName: data.invoiceData.cashierName,
+            paymentMethod: data.invoiceData.paymentMethod,
+            currencySymbol: data.invoiceData.currencySymbol,
+            items: data.invoiceData.items,
+            subtotal: data.invoiceData.subtotal,
+            discountAmount: data.invoiceData.discountAmount,
+            taxAmount: data.invoiceData.taxAmount,
+            totalAmount: data.invoiceData.totalAmount,
+            footer: data.invoiceData.footer,
+            invoiceId: data.invoiceId,
+          });
+          await printReceipt(lines);
+        } catch {}
+      }
     } catch {
       setCheckoutError("Could not complete sale. Check your connection.");
     } finally {
@@ -184,7 +209,7 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
           </Card>
         </div>
 
-        <CameraScanner products={products} onProductMatched={addOrPickSize} />
+        {visionEnabled && <CameraScanner products={products} onProductMatched={addOrPickSize} />}
 
         {products.length === 0 ? (
           <div className="grid flex-1 place-items-center rounded-[32px] border border-dashed border-[#dfebf3] bg-[#fbfdff] p-10 text-center">
@@ -333,7 +358,40 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
       )}
 
       {showInvoicePopup && invoicePreviewData && (
-        <InvoicePopup invoiceData={invoicePreviewData} onNext={handleNextCustomer} />
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md">
+            {isPrinterConnected() && (
+              <button
+                onClick={async () => {
+                  try {
+                    const lines = buildReceiptLines({
+                      businessName: invoicePreviewData.businessName,
+                      storeName: invoicePreviewData.storeName,
+                      storeAddress: invoicePreviewData.storeAddress || undefined,
+                      invoiceNumber: invoicePreviewData.invoiceNumber,
+                      createdAt: invoicePreviewData.createdAt,
+                      cashierName: invoicePreviewData.cashierName,
+                      paymentMethod: invoicePreviewData.paymentMethod,
+                      currencySymbol: invoicePreviewData.currencySymbol,
+                      items: invoicePreviewData.items,
+                      subtotal: invoicePreviewData.subtotal,
+                      discountAmount: invoicePreviewData.discountAmount,
+                      taxAmount: invoicePreviewData.taxAmount,
+                      totalAmount: invoicePreviewData.totalAmount,
+                      footer: invoicePreviewData.footer,
+                      invoiceId: invoicePreviewData.invoiceId,
+                    });
+                    await printReceipt(lines);
+                  } catch {}
+                }}
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#6F35F5] px-5 py-3 text-sm font-semibold text-white hover:bg-[#5a28d4]"
+              >
+                <Printer className="h-4 w-4" /> Print Receipt
+              </button>
+            )}
+            <InvoicePopup invoiceData={invoicePreviewData} onNext={handleNextCustomer} />
+          </div>
+        </div>
       )}
 
       {sizePickerProduct && (

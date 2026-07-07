@@ -212,6 +212,7 @@ export async function POST(request: NextRequest) {
       storeName: store.name,
       storeAddress: store.address,
       invoiceNumber: result.invoiceNumber,
+      invoiceId: result.invoiceId,
       createdAt: sale.createdAt,
       cashierName: sale.cashier.name || sale.cashier.email || "Cashier",
       paymentMethod: sale.paymentMethod,

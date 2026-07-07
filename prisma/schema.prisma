@@ -181,6 +181,7 @@ model BusinessSettings {
   receiptWidth         String        @default("80mm")
   invoiceFooter        String        @default("Thank you for shopping with us.")
   autoPrint            Boolean       @default(false)
+  visionEnabled        Boolean       @default(true)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
