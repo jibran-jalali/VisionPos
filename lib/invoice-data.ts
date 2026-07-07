@@ -5,6 +5,7 @@ export type InvoicePrintData = {
   businessName: string;
   businessPhone: string | null;
   businessAddress: string | null;
+  logoUrl: string | null;
   storeName: string;
   storeAddress: string | null;
   invoiceNumber: string;
@@ -49,6 +50,7 @@ export async function getInvoicePrintData(invoiceId: string, businessId: string)
     businessName: invoice.business.name,
     businessPhone: invoice.business.phone,
     businessAddress: invoice.business.address,
+    logoUrl: invoice.business.logoUrl,
     storeName: invoice.store.name,
     storeAddress: invoice.store.address,
     invoiceNumber: invoice.invoiceNumber,

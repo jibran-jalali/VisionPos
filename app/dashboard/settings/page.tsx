@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StoreLogoForm } from "@/components/settings/store-logo-form";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -38,6 +39,15 @@ export default async function SettingsPage() {
             <Input placeholder="Address" defaultValue={business.address || ""} readOnly />
             <Button variant="gradient" disabled>Editing coming next</Button>
           </div>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Store Logo</CardTitle>
+              <CardDescription>Upload the logo that appears at the top of receipt and A4 invoices.</CardDescription>
+            </div>
+          </CardHeader>
+          <StoreLogoForm initialLogoUrl={business.logoUrl} />
         </Card>
         <Card>
           <CardHeader>

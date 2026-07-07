@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { InvoicePrintData } from "@/lib/invoice-data";
 import { formatMoney } from "@/lib/currency";
 
@@ -8,7 +7,7 @@ export function ReceiptTemplate({ invoice }: { invoice: InvoicePrintData }) {
   return (
     <div className="print-page mx-auto w-full max-w-sm rounded-[28px] border border-[#dfebf3] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
       <div className="text-center">
-        <Image src="/vision-pos-logo.png" alt="VisionPOS" width={170} height={54} className="mx-auto h-auto w-40 object-contain" />
+        <img src={invoice.logoUrl || "/vision-pos-logo.png"} alt={`${invoice.businessName} logo`} className="mx-auto max-h-16 w-40 object-contain" />
         <h1 className="mt-4 text-xl font-semibold text-[#060b1f]">{invoice.businessName}</h1>
         <p className="text-xs font-semibold text-[#607080]">{invoice.storeName}{invoice.storeAddress ? ` · ${invoice.storeAddress}` : ""}</p>
       </div>
@@ -36,6 +35,9 @@ export function ReceiptTemplate({ invoice }: { invoice: InvoicePrintData }) {
         <div className="flex justify-between text-xl font-semibold text-[#060b1f]"><span>Total</span><span>{formatMoney(invoice.totalAmount, currency)}</span></div>
       </div>
       <p className="mt-6 text-center text-xs font-bold text-[#607080]">{invoice.footer}</p>
+      <div className="mt-4 border-t border-dashed border-[#cbd5e1] pt-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-[#9aa8b5]">
+        Powered by VisionPOS
+      </div>
     </div>
   );
 }

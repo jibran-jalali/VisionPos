@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { InvoicePrintData } from "@/lib/invoice-data";
 import { formatMoney } from "@/lib/currency";
 
@@ -9,7 +8,7 @@ export function A4Template({ invoice }: { invoice: InvoicePrintData }) {
     <div className="print-page mx-auto min-h-[980px] w-full max-w-4xl rounded-[28px] border border-[#dfebf3] bg-white p-10 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
       <header className="flex items-start justify-between gap-8 border-b border-[#dfebf3] pb-8">
         <div>
-          <Image src="/vision-pos-logo.png" alt="VisionPOS" width={190} height={60} className="h-auto w-48 object-contain" />
+          <img src={invoice.logoUrl || "/vision-pos-logo.png"} alt={`${invoice.businessName} logo`} className="max-h-20 w-48 object-contain" />
           <p className="mt-4 max-w-xs text-sm leading-6 text-[#607080]">
             {invoice.businessName}, {invoice.storeName}{invoice.businessAddress ? `, ${invoice.businessAddress}` : ""}{invoice.businessPhone ? `. Phone: ${invoice.businessPhone}` : ""}
           </p>
@@ -47,6 +46,9 @@ export function A4Template({ invoice }: { invoice: InvoicePrintData }) {
         <div className="flex justify-between border-t border-[#dfebf3] pt-4 text-2xl font-semibold text-[#060b1f]"><span>Total</span><span>{formatMoney(invoice.totalAmount, currency)}</span></div>
       </section>
       <p className="mt-10 text-center text-sm font-bold text-[#607080]">{invoice.footer}</p>
+      <div className="mt-5 border-t border-[#dfebf3] pt-4 text-center text-xs font-bold uppercase tracking-[0.18em] text-[#9aa8b5]">
+        Powered by VisionPOS
+      </div>
     </div>
   );
 }
