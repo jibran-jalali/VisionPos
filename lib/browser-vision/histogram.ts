@@ -1,6 +1,6 @@
 import type { ProfileData, MatchResult } from "./types";
 
-const CONFIDENCE_THRESHOLD = 0.78;
+const CONFIDENCE_THRESHOLD = 0.92;
 
 export function computeHistogram(canvas: HTMLCanvasElement): number[] {
   const ctx = canvas.getContext("2d")!;
@@ -86,7 +86,7 @@ export function matchHistogram(query: number[], profiles: ProfileData[]): MatchR
   if (!best) return null;
 
   const margin = best.score - (secondBest?.score ?? 0);
-  const accepted = best.score >= CONFIDENCE_THRESHOLD && margin > 0.05;
+  const accepted = best.score >= CONFIDENCE_THRESHOLD && margin > 0.15;
 
   return {
     productId: best.productId,

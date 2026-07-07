@@ -44,6 +44,8 @@ export function CameraScanner({
   const lastVisionProductTimeRef = useRef(0);
   const scanningRef = useRef(false);
   const visionProfilesRef = useRef<ProfileData[]>([]);
+  const visionConsecutiveProductRef = useRef<string | null>(null);
+  const visionConsecutiveCountRef = useRef(0);
   const productByCode = useMemo(() => {
     const map = new Map<string, CheckoutProduct>();
     for (const product of products) {
@@ -81,7 +83,7 @@ export function CameraScanner({
       }
     }
 
-    if (now - lastVisionScanAtRef.current < 650) return;
+    if (now - lastVisionScanAtRef.current < 1200) return;
     lastVisionScanAtRef.current = now;
 
     if (visionProfilesRef.current.length > 0) {
@@ -93,13 +95,25 @@ export function CameraScanner({
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const result = matchCanvas(canvas, visionProfilesRef.current);
       if (result?.accepted) {
-        const product = productById.get(result.productId);
-        const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 3000;
-        if (product && canAdd) {
-          lastVisionProductRef.current = result.productId;
-          lastVisionProductTimeRef.current = now;
-          onProductMatched(product);
+        if (result.productId === visionConsecutiveProductRef.current) {
+          visionConsecutiveCountRef.current++;
+        } else {
+          visionConsecutiveProductRef.current = result.productId;
+          visionConsecutiveCountRef.current = 1;
         }
+        if (visionConsecutiveCountRef.current >= 2) {
+          const product = productById.get(result.productId);
+          const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 8000;
+          if (product && canAdd) {
+            lastVisionProductRef.current = result.productId;
+            lastVisionProductTimeRef.current = now;
+            visionConsecutiveCountRef.current = 0;
+            onProductMatched(product);
+          }
+        }
+      } else {
+        visionConsecutiveProductRef.current = null;
+        visionConsecutiveCountRef.current = 0;
       }
     }
   };
