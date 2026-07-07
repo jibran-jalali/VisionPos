@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -140,6 +141,15 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+  });
+
+  await logAudit({
+    businessId: session.user.businessId,
+    userId: session.user.id,
+    action: "PRODUCT_CREATED",
+    entityType: "Product",
+    entityId: productId,
+    metadata: { name: parsed.data.name, sku: parsed.data.sku },
   });
 
   return NextResponse.json({ productId, name: parsed.data.name, sku: parsed.data.sku, barcode: parsed.data.barcode || null });

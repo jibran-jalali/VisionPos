@@ -43,6 +43,9 @@ export default async function CheckoutPage() {
       cashierName={session.user.name || session.user.email || "Cashier"}
       visionEnabled={settings?.visionEnabled ?? true}
       autoPrint={settings?.autoPrint ?? false}
+      taxEnabled={settings?.taxEnabled ?? false}
+      taxRate={settings?.taxRate ? Number(settings.taxRate) : 0}
+      currencySymbol={settings?.currencySymbol || "Rs"}
     />
   );
 }

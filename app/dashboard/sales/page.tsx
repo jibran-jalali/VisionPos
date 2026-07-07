@@ -1,9 +1,8 @@
-import { Printer } from "lucide-react";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PrintButton } from "@/components/pos/print-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +15,7 @@ export default async function SalesPage() {
 
   const sales = await prisma.sale.findMany({
     where: { businessId: session.user.businessId },
-    include: { cashier: true, items: true },
+    include: { cashier: true, items: true, invoice: true },
     orderBy: { createdAt: "desc" },
     take: 25,
   });
@@ -27,7 +26,7 @@ export default async function SalesPage() {
         <CardHeader>
           <div>
             <CardTitle>Recent Invoices</CardTitle>
-            <CardDescription>Completed sales will appear here after real checkout transactions.</CardDescription>
+            <CardDescription>Completed sales with print options.</CardDescription>
           </div>
           <Badge variant="green">Receipt + A4 ready</Badge>
         </CardHeader>
@@ -43,10 +42,16 @@ export default async function SalesPage() {
                 <div>
                   <p className="font-semibold text-[#060b1f]">{sale.invoiceNumber}</p>
                   <p className="mt-1 text-sm text-[#607080]">{sale.items.length} items · {sale.cashier.name || sale.cashier.email}</p>
+                  <p className="mt-0.5 text-xs text-[#607080]">{new Date(sale.createdAt).toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <strong className="text-lg text-[#060b1f]">{sale.currencySymbol} {Number(sale.totalAmount).toLocaleString()}</strong>
-                  <Button variant="soft"><Printer className="mr-2 h-4 w-4" /> Print</Button>
+                  {sale.invoice && (
+                    <div className="flex gap-2">
+                      <PrintButton invoiceId={sale.invoice.id} format="RECEIPT" />
+                      <PrintButton invoiceId={sale.invoice.id} format="A4" />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +84,16 @@ export default async function ProductsPage() {
                     </td>
                     <td className="px-5 py-4"><Badge variant={product.visualProfile?.profileStatus === "READY" ? "green" : "neutral"}>{product.visualProfile?.profileStatus || "NOT_STARTED"}</Badge></td>
                     <td className="px-5 py-4">
-                      <ProductActions productId={product.id} isActive={product.isActive} />
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/products/${product.id}/edit`}
+                          className="rounded-lg p-1.5 text-[#607080] transition hover:bg-[#f1f7fb] hover:text-[#060b1f]"
+                          title="Edit product"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <ProductActions productId={product.id} isActive={product.isActive} />
+                      </div>
                     </td>
                   </tr>
                 ))}

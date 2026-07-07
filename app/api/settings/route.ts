@@ -4,6 +4,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const settingsSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  phone: z.string().max(50).optional(),
+  address: z.string().max(500).optional(),
   visionEnabled: z.boolean().optional(),
   autoPrint: z.boolean().optional(),
   taxEnabled: z.boolean().optional(),
@@ -27,13 +30,26 @@ export async function POST(request: NextRequest) {
   }
 
   const businessId = session.user.businessId;
+  const { name, phone, address, ...settingsData } = parsed.data;
 
-  const existing = await prisma.businessSettings.findUnique({ where: { businessId } });
+  if (name !== undefined || phone !== undefined || address !== undefined) {
+    const businessUpdate: Record<string, string> = {};
+    if (name !== undefined) businessUpdate.name = name;
+    if (phone !== undefined) businessUpdate.phone = phone;
+    if (address !== undefined) businessUpdate.address = address;
 
-  if (existing) {
-    await prisma.businessSettings.update({ where: { businessId }, data: parsed.data });
-  } else {
-    await prisma.businessSettings.create({ data: { businessId, ...parsed.data } });
+    await prisma.business.update({ where: { id: businessId }, data: businessUpdate });
+  }
+
+  const hasSettings = Object.keys(settingsData).length > 0;
+  if (hasSettings) {
+    const existing = await prisma.businessSettings.findUnique({ where: { businessId } });
+
+    if (existing) {
+      await prisma.businessSettings.update({ where: { businessId }, data: settingsData });
+    } else {
+      await prisma.businessSettings.create({ data: { businessId, ...settingsData } });
+    }
   }
 
   return NextResponse.json({ ok: true });

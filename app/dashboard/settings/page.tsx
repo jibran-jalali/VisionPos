@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { StoreLogoForm } from "@/components/settings/store-logo-form";
 import { PrinterSettings } from "@/components/settings/printer-settings";
 import { VisionToggle } from "@/components/settings/vision-toggle";
 import { AutoPrintToggle } from "@/components/settings/auto-print-toggle";
+import { BusinessProfileForm } from "@/components/settings/business-profile-form";
+import { InvoiceSettingsForm } from "@/components/settings/invoice-settings-form";
+import { TaxSettingsForm } from "@/components/settings/tax-settings-form";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Eye, Printer } from "lucide-react";
+import { Eye, Printer, Receipt } from "lucide-react";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -34,15 +35,14 @@ export default async function SettingsPage() {
           <CardHeader>
             <div>
               <CardTitle>Business Profile</CardTitle>
-              <CardDescription>Real business profile created during owner registration.</CardDescription>
+              <CardDescription>Update your business name, phone, and address.</CardDescription>
             </div>
           </CardHeader>
-          <div className="grid gap-4">
-            <Input placeholder="Business name" defaultValue={business.name} readOnly />
-            <Input placeholder="Phone" defaultValue={business.phone || ""} readOnly />
-            <Input placeholder="Address" defaultValue={business.address || ""} readOnly />
-            <Button variant="gradient" disabled>Editing coming next</Button>
-          </div>
+          <BusinessProfileForm
+            initialName={business.name}
+            initialPhone={business.phone || ""}
+            initialAddress={business.address || ""}
+          />
         </Card>
 
         <Card>
@@ -59,15 +59,31 @@ export default async function SettingsPage() {
           <CardHeader>
             <div>
               <CardTitle>Invoice Preferences</CardTitle>
-              <CardDescription>Stored per business. Receipt and A4 templates are ready.</CardDescription>
+              <CardDescription>Configure invoice format, currency, and footer text.</CardDescription>
             </div>
           </CardHeader>
-          <div className="grid gap-4">
-            <Input defaultValue={`Default: ${business.settings?.defaultInvoiceFormat || "RECEIPT"}`} readOnly />
-            <Input defaultValue={`Currency: ${business.settings?.currencyCode || "PKR"}`} readOnly />
-            <Input defaultValue={business.settings?.invoiceFooter || "Thank you for shopping with us."} readOnly />
-            <Button variant="primary" disabled>Editing coming next</Button>
-          </div>
+          <InvoiceSettingsForm
+            initialFormat={business.settings?.defaultInvoiceFormat || "RECEIPT"}
+            initialCurrencyCode={business.settings?.currencyCode || "PKR"}
+            initialCurrencySymbol={business.settings?.currencySymbol || "Rs"}
+            initialFooter={business.settings?.invoiceFooter || "Thank you for shopping with us."}
+          />
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-[#6F35F5]" />
+              <div>
+                <CardTitle>Tax Settings</CardTitle>
+                <CardDescription>Enable tax and set the default tax rate applied to sales.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <TaxSettingsForm
+            initialEnabled={business.settings?.taxEnabled ?? false}
+            initialRate={Number(business.settings?.taxRate ?? 0)}
+          />
         </Card>
 
         <Card>

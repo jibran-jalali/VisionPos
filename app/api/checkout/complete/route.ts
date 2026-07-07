@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { createInvoiceNumber } from "@/lib/invoice";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import type { InvoicePrintData } from "@/lib/invoice-data";
 
 const completeSaleSchema = z.object({
@@ -13,6 +14,7 @@ const completeSaleSchema = z.object({
   })).min(1),
   paymentMethod: z.enum(["CASH", "CARD", "BANK_TRANSFER", "MOBILE_WALLET", "OTHER"]).default("CASH"),
   invoiceFormat: z.enum(["RECEIPT", "A4"]).default("RECEIPT"),
+  discountAmount: z.coerce.number().min(0).default(0),
 });
 
 export async function POST(request: NextRequest) {
@@ -114,9 +116,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const discountAmount = subtotal > 1000 ? 100 : 0;
+      const discountAmount = Math.min(parsed.data.discountAmount, subtotal);
+      const taxEnabled = settings?.taxEnabled ?? false;
+      const taxRate = settings?.taxRate ? Number(settings.taxRate) : 0;
       const taxableAmount = Math.max(0, subtotal - discountAmount);
-      const taxAmount = Math.round(taxableAmount * 0.05);
+      const taxAmount = taxEnabled ? Math.round(taxableAmount * (taxRate / 100)) : 0;
       const totalAmount = taxableAmount + taxAmount;
       const invoiceNumber = createInvoiceNumber();
 
@@ -232,6 +236,15 @@ export async function POST(request: NextRequest) {
         lineTotal: Number(item.lineTotal),
       })),
     };
+
+    await logAudit({
+      businessId,
+      userId: session.user.id,
+      action: "SALE_COMPLETED",
+      entityType: "Sale",
+      entityId: result.saleId,
+      metadata: { invoiceNumber: result.invoiceNumber, totalAmount: invoiceData.totalAmount, paymentMethod: parsed.data.paymentMethod },
+    });
 
     return NextResponse.json({ ...result, invoiceData });
   } catch (error) {

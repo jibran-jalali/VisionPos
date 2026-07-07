@@ -58,7 +58,7 @@ const paymentMethods: { value: PaymentMethod; label: string; helper: string }[] 
   { value: "BANK_TRANSFER", label: "Bank", helper: "Bank transfer" },
 ];
 
-export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrint }: { products: CheckoutProduct[]; cashierName: string; visionEnabled: boolean; autoPrint: boolean }) {
+export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrint, taxEnabled, taxRate, currencySymbol }: { products: CheckoutProduct[]; cashierName: string; visionEnabled: boolean; autoPrint: boolean; taxEnabled: boolean; taxRate: number; currencySymbol: string }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutError, setCheckoutError] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
@@ -69,14 +69,21 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
   const [invoicePreviewData, setInvoicePreviewData] = useState<InvoicePrintData | null>(null);
   const [sizePickerProduct, setSizePickerProduct] = useState<CheckoutProduct | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const filteredProducts = useMemo(() => {
-    if (!categoryFilter) return products;
-    return products.filter((p) => p.category === categoryFilter);
-  }, [products, categoryFilter]);
+    let result = products;
+    if (categoryFilter) result = result.filter((p) => p.category === categoryFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+    }
+    return result;
+  }, [products, categoryFilter, searchQuery]);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
-  const discount = subtotal > 1000 ? 100 : 0;
-  const tax = Math.round((subtotal - discount) * 0.05);
+  const [manualDiscount, setManualDiscount] = useState(0);
+  const discount = manualDiscount;
+  const tax = taxEnabled ? Math.round((subtotal - discount) * (taxRate / 100)) : 0;
   const total = subtotal - discount + tax;
 
   function addToCart(product: CheckoutProduct, variant?: { name: string; priceAdj: number }) {
@@ -141,6 +148,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
         body: JSON.stringify({
           invoiceFormat,
           paymentMethod,
+          discountAmount: discount,
           items: cart.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -209,7 +217,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
           </div>
           <div className="relative xl:w-96">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9aa8b5]" />
-            <Input className="min-h-14 rounded-3xl pl-12 text-base" placeholder="Search or scan product..." />
+            <Input className="min-h-14 rounded-3xl pl-12 text-base" placeholder="Search or scan product..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         </header>
 
@@ -315,8 +323,25 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
         <div className="mt-5 rounded-[30px] bg-[#f1f7fb] p-5">
           <div className="space-y-3 text-sm font-bold text-[#607080]">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
-            <div className="flex justify-between"><span>Discount</span><span>-{formatMoney(discount)}</span></div>
-            <div className="flex justify-between"><span>Tax 5%</span><span>{formatMoney(tax)}</span></div>
+            <div className="flex items-center justify-between gap-2">
+              <span>Discount</span>
+              <div className="relative w-28">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#607080]">{currencySymbol}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={subtotal}
+                  step="1"
+                  value={manualDiscount || ""}
+                  onChange={(e) => setManualDiscount(Math.max(0, Number(e.target.value)))}
+                  placeholder="0"
+                  className="w-full rounded-xl border border-[#dfebf3] bg-white py-1.5 pl-8 pr-2 text-right text-sm font-semibold text-[#060b1f] outline-none focus:border-[#6F35F5]"
+                />
+              </div>
+            </div>
+            {taxEnabled && (
+              <div className="flex justify-between"><span>Tax {taxRate}%</span><span>{formatMoney(tax)}</span></div>
+            )}
           </div>
           <div className="mt-5 flex items-center justify-between border-t border-[#dfebf3] pt-5">
             <span className="text-lg font-semibold text-[#060b1f]">Total</span>

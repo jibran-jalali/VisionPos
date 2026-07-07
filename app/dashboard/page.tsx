@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const [salesToday, productsCount, lowStockCount, recentSales] = await Promise.all([
+  const [salesToday, productsCount, lowStockCount, recentSales, settings] = await Promise.all([
     prisma.sale.findMany({ where: { businessId: session.user.businessId, createdAt: { gte: startOfDay } } }),
     prisma.product.count({ where: { businessId: session.user.businessId } }),
     prisma.inventory.count({ where: { businessId: session.user.businessId, quantity: { lte: 5 } } }),
@@ -26,12 +26,14 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.businessSettings.findUnique({ where: { businessId: session.user.businessId } }),
   ]);
 
   const revenueToday = salesToday.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
+  const currencySymbol = settings?.currencySymbol || "Rs";
 
   const metrics = [
-    { label: "Today's Revenue", value: `Rs ${revenueToday.toLocaleString()}`, delta: "Live Neon data", tone: "blue" },
+    { label: "Today's Revenue", value: `${currencySymbol} ${revenueToday.toLocaleString()}`, delta: "Live Neon data", tone: "blue" },
     { label: "Sales Today", value: String(salesToday.length), delta: "Completed", tone: "green" },
     { label: "Low Stock", value: String(lowStockCount), delta: "Needs action", tone: "warning" },
     { label: "Active Products", value: String(productsCount), delta: "Catalog", tone: "violet" },
