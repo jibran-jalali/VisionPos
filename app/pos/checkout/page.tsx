@@ -20,6 +20,7 @@ export default async function CheckoutPage() {
     include: {
       category: true,
       inventory: true,
+      variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
     },
     orderBy: { name: "asc" },
   });
@@ -33,6 +34,7 @@ export default async function CheckoutPage() {
     stock: product.inventory.reduce((sum, item) => sum + item.quantity, 0),
     category: product.category?.name || "Uncategorized",
     color: productColors[index % productColors.length],
+    variants: product.variants.map((v) => ({ id: v.id, name: v.name, priceAdj: Number(v.priceAdj) })),
   }));
 
   return <CheckoutConsole products={checkoutProducts} cashierName={session.user.name || session.user.email || "Cashier"} />;

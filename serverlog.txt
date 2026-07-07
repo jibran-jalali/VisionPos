@@ -1,0 +1,292 @@
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.23:3000
+- Environments: .env
+✓ Ready in 3.4s
+
+ GET / 200 in 2.3s (next.js: 1207ms, application-code: 1140ms)
+ GET / 200 in 318ms (next.js: 77ms, application-code: 241ms)
+[browser] Image with src "/vision-pos-logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_197-jwv._.js:2477:13)
+ GET /sw.js 404 in 284ms (next.js: 99ms, application-code: 184ms)
+ GET /login 200 in 759ms (next.js: 436ms, application-code: 323ms)
+ GET /dashboard 200 in 3.9s (next.js: 184ms, application-code: 3.7s)
+ POST /login 303 in 8.6s (next.js: 13ms, application-code: 8.5s)
+  └─ ƒ loginAction({}) in 4626ms app/login/actions.ts
+ GET /dashboard/products 200 in 3.1s (next.js: 253ms, application-code: 2.8s)
+ GET /pos/checkout 200 in 1828ms (next.js: 206ms, application-code: 1623ms)
+ GET /sw.js 404 in 266ms (next.js: 46ms, application-code: 220ms)
+ GET /api/products/embeddings 200 in 3.9s (next.js: 1887ms, application-code: 1968ms)
+ POST /api/products 200 in 8.1s (next.js: 1138ms, application-code: 6.9s)
+ POST /api/products/cmradn2st0003b1x4tekwpqnr/embeddings 200 in 7.4s (next.js: 4.7s, application-code: 2.6s)
+ GET /dashboard/products 200 in 2.6s (next.js: 37ms, application-code: 2.6s)
+✓ Compiled in 358ms
+⚠ Fast Refresh had to perform a full reload when ./node_modules/.pnpm/next@16.2.10_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /sw.js 404 in 405ms (next.js: 124ms, application-code: 281ms)
+ GET /pos/checkout 200 in 3.9s (next.js: 429ms, application-code: 3.4s)
+ GET /pos/checkout 200 in 3.3s (next.js: 135ms, application-code: 3.2s)
+ GET /pos/checkout 200 in 3.6s (next.js: 55ms, application-code: 3.6s)
+ GET /dashboard/products 200 in 4.7s (next.js: 388ms, application-code: 4.3s)
+ GET /dashboard/products 200 in 6.1s (next.js: 1096ms, application-code: 5.0s)
+ GET /pos/checkout 200 in 2.2s (next.js: 15ms, application-code: 2.2s)
+ GET /pos/checkout 200 in 2.0s (next.js: 36ms, application-code: 1989ms)
+ GET /dashboard/products 200 in 5.8s (next.js: 23ms, application-code: 5.8s)
+ GET /pos/checkout 200 in 1579ms (next.js: 127ms, application-code: 1451ms)
+ GET /pos/checkout 200 in 1722ms (next.js: 29ms, application-code: 1694ms)
+ GET /pos/checkout 200 in 2.2s (next.js: 224ms, application-code: 1955ms)
+ GET /pos/checkout 200 in 2.1s (next.js: 60ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 1589ms (next.js: 32ms, application-code: 1558ms)
+ GET /pos/checkout 200 in 1828ms (next.js: 17ms, application-code: 1811ms)
+ GET /pos/checkout 200 in 1565ms (next.js: 23ms, application-code: 1543ms)
+ GET /pos/checkout 200 in 1616ms (next.js: 22ms, application-code: 1594ms)
+ GET /pos/checkout 200 in 1470ms (next.js: 32ms, application-code: 1438ms)
+ GET /pos/checkout 200 in 1404ms (next.js: 26ms, application-code: 1378ms)
+ GET /pos/checkout 200 in 1542ms (next.js: 34ms, application-code: 1508ms)
+ GET /pos/checkout 200 in 1306ms (next.js: 18ms, application-code: 1287ms)
+ GET /pos/checkout 200 in 1350ms (next.js: 17ms, application-code: 1333ms)
+ GET /pos/checkout 200 in 1522ms (next.js: 25ms, application-code: 1497ms)
+ GET /pos/checkout 200 in 1456ms (next.js: 24ms, application-code: 1432ms)
+ GET /pos/checkout 200 in 1502ms (next.js: 20ms, application-code: 1482ms)
+ GET /pos/checkout 200 in 1576ms (next.js: 14ms, application-code: 1562ms)
+ GET /pos/checkout 200 in 1522ms (next.js: 17ms, application-code: 1505ms)
+ GET /pos/checkout 200 in 1351ms (next.js: 21ms, application-code: 1330ms)
+✓ Compiled in 752ms
+ GET /pos/checkout 200 in 4.3s (next.js: 25ms, application-code: 4.2s)
+ GET /pos/checkout 200 in 4.0s (next.js: 54ms, application-code: 4.0s)
+ GET /pos/checkout 200 in 3.7s (next.js: 19ms, application-code: 3.7s)
+ GET /pos/checkout 200 in 5.5s (next.js: 2.3s, application-code: 3.2s)
+ GET /pos/checkout 200 in 5.4s (next.js: 2.6s, application-code: 2.8s)
+ GET /pos/checkout 200 in 5.4s (next.js: 2.4s, application-code: 3.0s)
+ GET /pos/checkout 200 in 2.1s (next.js: 20ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 3.1s (next.js: 674ms, application-code: 2.4s)
+ GET /pos/checkout 200 in 3.1s (next.js: 430ms, application-code: 2.7s)
+ GET /pos/checkout 200 in 2.1s (next.js: 11ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 2.4s (next.js: 104ms, application-code: 2.3s)
+ GET /pos/checkout 200 in 2.4s (next.js: 27ms, application-code: 2.4s)
+ GET /pos/checkout 200 in 2.2s (next.js: 25ms, application-code: 2.2s)
+ GET /pos/checkout 200 in 2.1s (next.js: 213ms, application-code: 1841ms)
+ GET /pos/checkout 200 in 2.1s (next.js: 43ms, application-code: 2.0s)
+ GET /pos/checkout 200 in 2.0s (next.js: 24ms, application-code: 2.0s)
+ GET /pos/checkout 200 in 1715ms (next.js: 19ms, application-code: 1696ms)
+ GET /pos/checkout 200 in 1763ms (next.js: 89ms, application-code: 1674ms)
+ GET /pos/checkout 200 in 1803ms (next.js: 208ms, application-code: 1596ms)
+ GET /pos/checkout 200 in 1810ms (next.js: 37ms, application-code: 1774ms)
+ GET /pos/checkout 200 in 2.0s (next.js: 25ms, application-code: 1982ms)
+ GET /pos/checkout 200 in 1829ms (next.js: 82ms, application-code: 1747ms)
+ GET /pos/checkout 200 in 1857ms (next.js: 35ms, application-code: 1822ms)
+ GET /pos/checkout 200 in 2.1s (next.js: 46ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 1777ms (next.js: 182ms, application-code: 1596ms)
+ GET /pos/checkout 200 in 1784ms (next.js: 31ms, application-code: 1752ms)
+ GET /pos/checkout 200 in 2.3s (next.js: 291ms, application-code: 2.0s)
+ GET /pos/checkout 200 in 1790ms (next.js: 37ms, application-code: 1753ms)
+ GET /pos/checkout 200 in 1999ms (next.js: 25ms, application-code: 1974ms)
+ GET /pos/checkout 200 in 1893ms (next.js: 25ms, application-code: 1868ms)
+ GET /pos/checkout 200 in 1924ms (next.js: 201ms, application-code: 1723ms)
+ GET /pos/checkout 200 in 1930ms (next.js: 26ms, application-code: 1903ms)
+ GET /pos/checkout 200 in 1822ms (next.js: 67ms, application-code: 1755ms)
+ GET /pos/checkout 200 in 2.2s (next.js: 23ms, application-code: 2.2s)
+ GET /pos/checkout 200 in 2.2s (next.js: 119ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 2.2s (next.js: 57ms, application-code: 2.2s)
+ GET /pos/checkout 200 in 2.3s (next.js: 25ms, application-code: 2.3s)
+ GET /pos/checkout 200 in 2.3s (next.js: 196ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 2.1s (next.js: 34ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 1914ms (next.js: 16ms, application-code: 1899ms)
+ GET /pos/checkout 200 in 1914ms (next.js: 24ms, application-code: 1889ms)
+ GET /pos/checkout 200 in 2.1s (next.js: 41ms, application-code: 2.0s)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+      <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+        <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+          <LoadingBoundary name="products/" loading={null}>
+            <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <InnerLayoutRouter url="/dashboard..." tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} ...>
+                    <SegmentViewNode type="page" pagePath="dashboard/...">
+                      <SegmentTrieNode>
+                      <ProductsPage>
+                        <DashboardShell>
+                          <div className="flex min-h...">
+                            <aside>
+                            <main className="min-w-0 fl...">
+                              <header className="mb-8 flex ...">
+                                <div>
+                                <div className="flex flex-...">
+                                  <div>
+                                  <button
+                                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#..."
+                                    type="button"
+-                                   fdprocessedid="wnhf9h"
+                                  >
+                                  <div className="flex items...">
+                                    <div>
+                                    <div>
+                                    <form action={function logoutAction}>
+                                      <button
+                                        className="flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium ..."
+                                        type="submit"
+-                                       fdprocessedid="nvec3"
+                                      >
+                              <div className="grid gap-6...">
+                                <div className="grid gap-6">
+                                  ...
+                                    <div className="rounded-[2...">
+                                      <CardHeader>
+                                      <div className="grid gap-4">
+                                        <div>
+                                        <div>
+                                        <div>
+                                        <div>
+                                        <div>
+                                        <hr>
+                                        <div className="flex gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={function onClick}
+                                            className="rounded-xl px-4 py-2 text-sm font-semibold transition bg-[#060b..."
+-                                           fdprocessedid="y12lhv"
+                                          >
+                                          <button
+                                            type="button"
+                                            onClick={function onClick}
+                                            className="rounded-xl px-4 py-2 text-sm font-semibold transition bg-[#f1f7..."
+-                                           fdprocessedid="zlzba"
+                                          >
+                                        ...
+                                  ...
+                                    <tbody className="divide-y d...">
+                                      <tr>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td className="px-5 py-4">
+                                          <ProductActions productId="cmradn2st0..." isActive={true}>
+                                            <div className="flex items...">
+                                              <button
+                                                type="button"
+                                                onClick={function toggleActive}
+                                                className="rounded-lg p-1.5 text-[#607080] transition hover:bg-[#f1f7f..."
+                                                title="Deactivate product"
+-                                               fdprocessedid="i21ren"
+                                              >
+                                              <button
+                                                type="button"
+                                                onClick={function deleteProduct}
+                                                className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50 ho..."
+                                                title="Delete product permanently"
+-                                               fdprocessedid="a2lvbp"
+                                              >
+                                      <tr>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td className="px-5 py-4">
+                                          <ProductActions productId="cmr9lng190..." isActive={false}>
+                                            <div className="flex items...">
+                                              <button
+                                                type="button"
+                                                onClick={function toggleActive}
+                                                className="rounded-lg p-1.5 text-[#607080] transition hover:bg-[#f1f7f..."
+                                                title="Activate product"
+-                                               fdprocessedid="zwuk1s"
+                                              >
+                                              <button
+                                                type="button"
+                                                onClick={function deleteProduct}
+                                                className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50 ho..."
+                                                title="Delete product permanently"
+-                                               fdprocessedid="ty6498"
+                                              >
+                                      <tr>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td className="px-5 py-4">
+                                          <ProductActions productId="cmr9l6e790..." isActive={false}>
+                                            <div className="flex items...">
+                                              <button
+                                                type="button"
+                                                onClick={function toggleActive}
+                                                className="rounded-lg p-1.5 text-[#607080] transition hover:bg-[#f1f7f..."
+                                                title="Activate product"
+-                                               fdprocessedid="01e7s7"
+                                              >
+                                              <button
+                                                type="button"
+                                                onClick={function deleteProduct}
+                                                className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50 ho..."
+                                                title="Delete product permanently"
+-                                               fdprocessedid="9d9lv9"
+                                              >
+                                      <tr>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td>
+                                        <td className="px-5 py-4">
+                                          <ProductActions productId="cmr9jl3w00..." isActive={false}>
+                                            <div className="flex items...">
+                                              <button
+                                                type="button"
+                                                onClick={function toggleActive}
+                                                className="rounded-lg p-1.5 text-[#607080] transition hover:bg-[#f1f7f..."
+                                                title="Activate product"
+-                                               fdprocessedid="iwhnpn"
+                                              >
+                                              <button
+                                                type="button"
+                                                onClick={function deleteProduct}
+                                                className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50 ho..."
+                                                title="Delete product permanently"
+-                                               fdprocessedid="ogqntj"
+                                              >
+                    ...
+                  ...
+        ...
+ 
+    at <unknown> (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:3439:25)
+    at runWithFiberInDEV (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:965:74)
+    at emitPendingHydrationWarnings (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:3438:13)
+    at completeWork (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:6885:102)
+    at runWithFiberInDEV (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:965:131)
+    at completeUnitOfWork (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:9622:23)
+    at performUnitOfWork (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:9551:58)
+    at renderRootConcurrent (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:9534:71)
+    at performWorkOnRoot (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_1wcwibt._.js:2647:64) (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_compiled_react-dom_1can280._.js:3439:25)
+[browser] Image with src "/vision-pos-logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. (file://D:/Desktop/vission pos/.next/dev/static/chunks/0_35_next_dist_197-jwv._.js:2477:13)
+ GET /pos/checkout 200 in 2.2s (next.js: 17ms, application-code: 2.2s)
+ GET /pos/checkout 200 in 2.1s (next.js: 28ms, application-code: 2.1s)
+ GET /pos/checkout 200 in 2.4s (next.js: 32ms, application-code: 2.4s)
+ GET /pos/checkout 200 in 2.3s (next.js: 15ms, application-code: 2.3s)
+ GET /sw.js 404 in 843ms (next.js: 346ms, application-code: 497ms)
+
+D:\Desktop\vission pos>

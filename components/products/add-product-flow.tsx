@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Save, ScanLine, Square, Trash2, Videotape } from "lucide-react";
+import { Loader2, Plus, Save, ScanLine, Square, Trash2, Videotape } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ export function AddProductFlow() {
   const [price, setPrice] = useState("");
   const [initialQuantity, setInitialQuantity] = useState("0");
   const [reorderLevel, setReorderLevel] = useState("5");
+  const [variants, setVariants] = useState<{ name: string; priceAdj: number; sku: string; barcode: string }[]>([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Step 1: scan or enter barcode. Step 2: record a short product video for vision training.");
   const [isSaving, setIsSaving] = useState(false);
@@ -213,6 +214,22 @@ export function AddProductFlow() {
     });
   }
 
+  function addVariant() {
+    setVariants((prev) => [...prev, { name: "", priceAdj: 0, sku: "", barcode: "" }]);
+  }
+
+  function updateVariant(index: number, field: string, value: string | number) {
+    setVariants((prev) => {
+      const next = [...prev];
+      (next[index] as Record<string, string | number>)[field] = value;
+      return next;
+    });
+  }
+
+  function removeVariant(index: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function resetAfterSave() {
     setName("");
     setSku("");
@@ -222,6 +239,7 @@ export function AddProductFlow() {
       prev.forEach((frame) => URL.revokeObjectURL(frame.url));
       return [];
     });
+    setVariants([]);
   }
 
   async function saveAll() {
@@ -243,6 +261,7 @@ export function AddProductFlow() {
       formData.set("price", price);
       formData.set("initialQuantity", initialQuantity);
       formData.set("reorderLevel", reorderLevel);
+      if (variants.length > 0) formData.set("variants", JSON.stringify(variants));
 
       const res = await fetch("/api/products", { method: "POST", body: formData });
       const resData = await res.json();
@@ -397,6 +416,58 @@ export function AddProductFlow() {
             <Input type="number" min="0" step="1" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} required className="h-9 text-sm" />
           </div>
         </div>
+
+        {variants.length > 0 && (
+          <div className="rounded-xl bg-[#f1f7fb] p-3">
+            <p className="mb-2 text-xs font-bold text-[#060b1f]">Size Variations</p>
+            <div className="space-y-2">
+              {variants.map((v, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    placeholder="e.g. Small, Medium, Large"
+                    value={v.name}
+                    onChange={(e) => updateVariant(i, "name", e.target.value)}
+                    className="h-9 flex-1 text-sm"
+                  />
+                  <div className="relative w-24">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#607080]">+</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="+0"
+                      value={v.priceAdj}
+                      onChange={(e) => updateVariant(i, "priceAdj", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                      className="h-9 w-full pl-5 text-sm"
+                    />
+                  </div>
+                  <Input
+                    placeholder="SKU"
+                    value={v.sku}
+                    onChange={(e) => updateVariant(i, "sku", e.target.value)}
+                    className="h-9 w-28 text-sm"
+                  />
+                  <Input
+                    placeholder="Barcode"
+                    value={v.barcode}
+                    onChange={(e) => updateVariant(i, "barcode", e.target.value)}
+                    className="h-9 w-28 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(i)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[24px] text-[#607080] transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <Button type="button" variant="soft" size="sm" onClick={addVariant} className="h-8 text-xs">
+          <Plus className="mr-1 h-3.5 w-3.5" /> Add Size
+        </Button>
 
         <div className="rounded-xl bg-[#f1f7fb] p-3">
           <div className="flex items-center justify-between gap-3">

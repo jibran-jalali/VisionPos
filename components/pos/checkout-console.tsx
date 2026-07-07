@@ -1,14 +1,15 @@
 "use client";
 
 import { Minus, Plus, Printer, Search, Trash2, Wifi } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CameraScanner } from "@/components/pos/camera-scanner";
+import { InvoicePopup } from "@/components/pos/invoice-popup";
 import { formatMoney } from "@/lib/currency";
+import type { InvoicePrintData } from "@/lib/invoice-data";
 
 export type CheckoutProduct = {
   id: string;
@@ -19,6 +20,7 @@ export type CheckoutProduct = {
   stock: number;
   category: string;
   color: string;
+  variants: { id: string; name: string; priceAdj: number }[];
 };
 
 type CartItem = {
@@ -26,6 +28,8 @@ type CartItem = {
   name: string;
   price: number;
   quantity: number;
+  variantName?: string;
+  cartKey: string;
 };
 
 type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOBILE_WALLET" | "OTHER";
@@ -39,38 +43,60 @@ const paymentMethods: { value: PaymentMethod; label: string; helper: string }[] 
 ];
 
 export function CheckoutConsole({ products, cashierName }: { products: CheckoutProduct[]; cashierName: string }) {
-  const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutError, setCheckoutError] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [invoiceFormat, setInvoiceFormat] = useState<InvoiceFormat>("RECEIPT");
-  const [lastInvoice, setLastInvoice] = useState<{ invoiceId: string; invoiceNumber: string } | null>(null);
+  const [showInvoicePopup, setShowInvoicePopup] = useState(false);
+  const [invoicePreviewData, setInvoicePreviewData] = useState<InvoicePrintData | null>(null);
+  const [sizePickerProduct, setSizePickerProduct] = useState<CheckoutProduct | null>(null);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const discount = subtotal > 1000 ? 100 : 0;
   const tax = Math.round((subtotal - discount) * 0.05);
   const total = subtotal - discount + tax;
 
-  function addToCart(product: CheckoutProduct) {
-    setLastInvoice(null);
+  function addToCart(product: CheckoutProduct, variant?: { name: string; priceAdj: number }) {
+    setShowInvoicePopup(false);
+    setInvoicePreviewData(null);
     setCheckoutError("");
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id);
+      const cartKey = variant ? `${product.id}-${variant.name}` : product.id;
+      const existing = current.find((item) => item.cartKey === cartKey);
 
       if (existing) {
-        return current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
+        return current.map((item) =>
+          item.cartKey === cartKey ? { ...item, quantity: item.quantity + 1 } : item
+        );
       }
 
-      return [...current, { id: product.id, name: product.name, price: product.price, quantity: 1 }];
+      return [...current, {
+        id: product.id,
+        name: variant ? `${product.name} - ${variant.name}` : product.name,
+        price: product.price + (variant?.priceAdj ?? 0),
+        quantity: 1,
+        variantName: variant?.name,
+        cartKey,
+      }];
     });
   }
 
-  function updateQuantity(id: string, amount: number) {
+  function addOrPickSize(product: CheckoutProduct) {
+    if (product.variants.length > 0) {
+      setSizePickerProduct(product);
+    } else {
+      addToCart(product);
+    }
+  }
+
+  function updateQuantity(cartKey: string, amount: number) {
     setCart((current) =>
       current
-        .map((item) => (item.id === id ? { ...item, quantity: Math.max(0, item.quantity + amount) } : item))
+        .map((item) =>
+          item.cartKey === cartKey ? { ...item, quantity: item.quantity + amount } : item,
+        )
         .filter((item) => item.quantity > 0),
     );
   }
@@ -94,7 +120,11 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
         body: JSON.stringify({
           invoiceFormat,
           paymentMethod,
-          items: cart.map((item) => ({ productId: item.id, quantity: item.quantity })),
+          items: cart.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            variantName: item.variantName,
+          })),
         }),
       });
       const data = await res.json();
@@ -110,7 +140,8 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
 
       setCart([]);
       setPaymentOpen(false);
-      setLastInvoice({ invoiceId: data.invoiceId, invoiceNumber: data.invoiceNumber });
+      setInvoicePreviewData(data.invoiceData);
+      setShowInvoicePopup(true);
     } catch {
       setCheckoutError("Could not complete sale. Check your connection.");
     } finally {
@@ -118,9 +149,10 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
     }
   }
 
-  function openInvoice(format: InvoiceFormat) {
-    if (!lastInvoice) return;
-    window.open(`/invoices/${lastInvoice.invoiceId}/${format === "A4" ? "a4" : "receipt"}`, "_blank", "noopener,noreferrer");
+  function handleNextCustomer() {
+    setShowInvoicePopup(false);
+    setInvoicePreviewData(null);
+    setCheckoutError("");
   }
 
   return (
@@ -152,7 +184,7 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
           </Card>
         </div>
 
-        <CameraScanner products={products} onProductMatched={addToCart} />
+        <CameraScanner products={products} onProductMatched={addOrPickSize} />
 
         {products.length === 0 ? (
           <div className="grid flex-1 place-items-center rounded-[32px] border border-dashed border-[#dfebf3] bg-[#fbfdff] p-10 text-center">
@@ -166,7 +198,7 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
           {products.map((product) => (
             <button
               key={product.id}
-              onClick={() => addToCart(product)}
+              onClick={() => addOrPickSize(product)}
               disabled={product.stock <= 0}
               className="group flex min-h-44 flex-col justify-between rounded-[30px] border border-[#dfebf3] bg-[#fbfdff] p-5 text-left transition hover:-translate-y-1 hover:border-[#15bdf2] hover:shadow-[0_18px_42px_rgba(21,189,242,0.14)]"
             >
@@ -195,21 +227,21 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
 
         <div className="flex-1 space-y-3 overflow-auto pr-1">
           {cart.map((item) => (
-            <div key={item.id} className="rounded-[28px] border border-[#dfebf3] bg-[#fbfdff] p-4">
+            <div key={item.cartKey} className="rounded-[28px] border border-[#dfebf3] bg-[#fbfdff] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold leading-tight text-[#060b1f]">{item.name}</p>
                   <p className="mt-1 text-sm font-bold text-[#607080]">{formatMoney(item.price)} each</p>
                 </div>
-                <button onClick={() => updateQuantity(item.id, -item.quantity)} className="rounded-2xl p-2 text-[#ef4444] hover:bg-red-50">
+                <button onClick={() => updateQuantity(item.cartKey, -item.quantity)} className="rounded-2xl p-2 text-[#ef4444] hover:bg-red-50">
                   <Trash2 className="h-5 w-5" />
                 </button>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Minus className="h-4 w-4" /></button>
+                  <button onClick={() => updateQuantity(item.cartKey, -1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Minus className="h-4 w-4" /></button>
                   <span className="flex h-11 min-w-12 items-center justify-center rounded-2xl bg-[#060b1f] px-4 font-semibold text-white">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Plus className="h-4 w-4" /></button>
+                  <button onClick={() => updateQuantity(item.cartKey, 1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Plus className="h-4 w-4" /></button>
                 </div>
                 <strong className="text-xl text-[#060b1f]">{formatMoney(item.price * item.quantity)}</strong>
               </div>
@@ -232,16 +264,6 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
         {checkoutError && (
           <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {checkoutError}
-          </div>
-        )}
-
-        {lastInvoice && (
-          <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            Transaction completed: {lastInvoice.invoiceNumber}. Ready for next checkout.
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button size="sm" variant="soft" onClick={() => openInvoice("RECEIPT")}>Open Receipt</Button>
-              <Button size="sm" variant="soft" onClick={() => openInvoice("A4")}>Open A4</Button>
-            </div>
           </div>
         )}
 
@@ -306,6 +328,31 @@ export function CheckoutConsole({ products, cashierName }: { products: CheckoutP
             <Button className="mt-5 w-full" size="touch" variant="gradient" onClick={completeSale} disabled={isCompleting}>
               {isCompleting ? "Saving paid transaction..." : `Mark Paid (${paymentMethods.find((method) => method.value === paymentMethod)?.label})`}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {showInvoicePopup && invoicePreviewData && (
+        <InvoicePopup invoiceData={invoicePreviewData} onNext={handleNextCustomer} />
+      )}
+
+      {sizePickerProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSizePickerProduct(null)}>
+          <div className="w-full max-w-sm rounded-[32px] bg-white p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="text-lg font-semibold text-[#060b1f]">Select size for {sizePickerProduct.name}</p>
+            <div className="mt-5 space-y-2">
+              {sizePickerProduct.variants.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => { addToCart(sizePickerProduct, v); setSizePickerProduct(null); }}
+                  className="flex w-full items-center justify-between rounded-[20px] border border-[#dfebf3] px-5 py-4 text-left transition hover:border-[#15bdf2] hover:shadow-[0_6px_18px_rgba(21,189,242,0.12)]"
+                >
+                  <span className="font-semibold text-[#060b1f]">{v.name}</span>
+                  <span className="text-sm font-bold text-[#607080]">{formatMoney(sizePickerProduct.price + v.priceAdj)}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setSizePickerProduct(null)} className="mt-5 w-full rounded-[20px] py-3 text-center text-sm font-semibold text-[#607080] hover:bg-[#f1f7fb]">Cancel</button>
           </div>
         </div>
       )}

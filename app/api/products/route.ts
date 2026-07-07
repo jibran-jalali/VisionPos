@@ -34,6 +34,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid input", issues: parsed.error.issues }, { status: 400 });
   }
 
+  let variants: { name: string; priceAdj: number; sku: string; barcode: string }[] = [];
+  const rawVariants = formData.get("variants");
+  if (rawVariants && typeof rawVariants === "string") {
+    try {
+      variants = JSON.parse(rawVariants);
+    } catch {
+      return NextResponse.json({ error: "Invalid variants JSON" }, { status: 400 });
+    }
+  }
+
   const businessId = session.user.businessId;
   let store = await prisma.store.findFirst({
     where: { businessId, isActive: true },
@@ -113,6 +123,20 @@ export async function POST(request: NextRequest) {
           newQuantity: parsed.data.initialQuantity,
           reason: "Initial product stock",
           createdById: session.user.id,
+        },
+      });
+    }
+
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
+      await tx.productVariant.create({
+        data: {
+          productId: product.id,
+          name: v.name,
+          priceAdj: v.priceAdj,
+          sku: v.sku || null,
+          barcode: v.barcode || null,
+          sortOrder: i,
         },
       });
     }
