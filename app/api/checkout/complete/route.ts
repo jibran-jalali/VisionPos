@@ -29,13 +29,28 @@ export async function POST(request: NextRequest) {
   }
   const productIds = Array.from(quantities.keys());
 
-  const store = await prisma.store.findFirst({
+  let store = await prisma.store.findFirst({
     where: { businessId, isActive: true },
     orderBy: { createdAt: "asc" },
   });
 
   if (!store) {
-    return NextResponse.json({ error: "No active store found" }, { status: 400 });
+    const existingMainStore = await prisma.store.findUnique({
+      where: { businessId_code: { businessId, code: "MAIN" } },
+    });
+
+    store = existingMainStore
+      ? await prisma.store.update({
+          where: { id: existingMainStore.id },
+          data: { isActive: true },
+        })
+      : await prisma.store.create({
+          data: {
+            businessId,
+            name: "Main Store",
+            code: "MAIN",
+          },
+        });
   }
 
   try {
