@@ -3,7 +3,7 @@
 import { Barcode, Loader2, ScanLine } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { detectBarcode, isBarcodeSupported } from "@/lib/browser-vision/barcode";
+import { detectBarcode } from "@/lib/browser-vision/barcode";
 import { matchCanvas } from "@/lib/browser-vision/histogram";
 import type { ProfileData } from "@/lib/browser-vision/types";
 import type { CheckoutProduct } from "@/components/pos/checkout-console";
@@ -44,7 +44,6 @@ export function CameraScanner({
   const lastVisionProductTimeRef = useRef(0);
   const scanningRef = useRef(false);
   const visionProfilesRef = useRef<ProfileData[]>([]);
-  const barcodeSupported = isBarcodeSupported();
   const productByCode = useMemo(() => {
     const map = new Map<string, CheckoutProduct>();
     for (const product of products) {
@@ -64,7 +63,7 @@ export function CameraScanner({
 
     const now = Date.now();
 
-    if (barcodeSupported && now - lastBarcodeScanAtRef.current > 120) {
+    if (now - lastBarcodeScanAtRef.current > 120) {
       lastBarcodeScanAtRef.current = now;
       const barcode = await detectBarcode(video);
       if (barcode) {
@@ -148,7 +147,7 @@ export function CameraScanner({
     }
     init();
     return () => { running = false; };
-  }, [barcodeSupported]);
+  }, []);
 
   useEffect(() => {
     return () => {

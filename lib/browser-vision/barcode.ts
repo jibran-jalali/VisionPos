@@ -1,28 +1,88 @@
-let detector: BarcodeDetector | null = null;
+import type { BrowserMultiFormatReader } from "@zxing/browser";
 
-export function isBarcodeSupported(): boolean {
-  return "BarcodeDetector" in globalThis;
+let nativeDetector: BarcodeDetector | null | undefined = undefined;
+let zxingReader: BrowserMultiFormatReader | null | undefined = undefined;
+
+function getNativeDetector(): BarcodeDetector | null {
+  if (nativeDetector !== undefined) return nativeDetector;
+  if (typeof BarcodeDetector !== "undefined") {
+    try {
+      nativeDetector = new BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"],
+      });
+    } catch {
+      nativeDetector = null;
+    }
+  } else {
+    nativeDetector = null;
+  }
+  return nativeDetector;
 }
 
-export function getDetector(): BarcodeDetector | null {
-  if (detector) return detector;
-  if (!isBarcodeSupported()) return null;
+async function getZxingReader(): Promise<BrowserMultiFormatReader | null> {
+  if (zxingReader !== undefined) return zxingReader;
+  if (typeof window === "undefined") { zxingReader = null; return null; }
   try {
-    detector = new BarcodeDetector({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"],
-    });
-    return detector;
+    const mod = await import("@zxing/browser");
+    zxingReader = new mod.BrowserMultiFormatReader();
+    return zxingReader;
+  } catch {
+    zxingReader = null;
+    return null;
+  }
+}
+
+export function isBarcodeSupported(): boolean {
+  return true;
+}
+
+export function hasNativeBarcodeDetector(): boolean {
+  return getNativeDetector() !== null;
+}
+
+export async function detectBarcode(video: HTMLVideoElement): Promise<string | null> {
+  const native = getNativeDetector();
+  if (native) {
+    try {
+      const barcodes = await native.detect(video);
+      if (barcodes.length > 0) return barcodes[0].rawValue;
+    } catch {
+      // native failed, fall through
+    }
+  }
+  return detectWithZxing(video);
+}
+
+async function detectWithZxing(video: HTMLVideoElement): Promise<string | null> {
+  const reader = await getZxingReader();
+  if (!reader) return null;
+  try {
+    const canvas = document.createElement("canvas");
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
+    canvas.width = Math.min(w, 640);
+    canvas.height = Math.min(h, 480);
+    canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const result = reader.decodeFromCanvas(canvas);
+    return result.getText();
   } catch {
     return null;
   }
 }
 
-export async function detectBarcode(video: HTMLVideoElement): Promise<string | null> {
-  const d = getDetector();
-  if (!d) return null;
+export async function detectBarcodeFromCanvas(canvas: HTMLCanvasElement): Promise<string | null> {
+  const native = getNativeDetector();
+  if (native) {
+    try {
+      const barcodes = await native.detect(canvas);
+      if (barcodes.length > 0) return barcodes[0].rawValue;
+    } catch {}
+  }
+  const reader = await getZxingReader();
+  if (!reader) return null;
   try {
-    const barcodes = await d.detect(video);
-    return barcodes.length > 0 ? barcodes[0].rawValue : null;
+    const result = reader.decodeFromCanvas(canvas);
+    return result.getText();
   } catch {
     return null;
   }

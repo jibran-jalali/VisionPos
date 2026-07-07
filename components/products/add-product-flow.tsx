@@ -5,7 +5,7 @@ import { Camera, Loader2, Save, ScanLine, Square, Trash2, Videotape } from "luci
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { detectBarcode, isBarcodeSupported } from "@/lib/browser-vision/barcode";
+import { detectBarcode } from "@/lib/browser-vision/barcode";
 import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 type CapturedFrame = { blob: Blob; url: string };
@@ -49,7 +49,6 @@ export function AddProductFlow() {
   const capturedFramesRef = useRef<CapturedFrame[]>([]);
   const barcodeRef = useRef("");
   const skuRef = useRef("");
-  const barcodeSupported = isBarcodeSupported();
 
   useEffect(() => { barcodeRef.current = barcode; }, [barcode]);
   useEffect(() => { skuRef.current = sku; }, [sku]);
@@ -70,7 +69,7 @@ export function AddProductFlow() {
           await videoRef.current.play();
         }
         setCameraState("ready");
-        setStatus(barcodeSupported ? "Camera ready. Barcode scanner is active. Record video when product details are filled." : "Camera ready. Enter barcode manually, then record product video.");
+        setStatus("Camera ready. Barcode scanner is active. Record video when product details are filled.");
       } catch (err) {
         if (!mounted) return;
         const msg = String(err);
@@ -90,10 +89,10 @@ export function AddProductFlow() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
-  }, [barcodeSupported]);
+  }, []);
 
   useEffect(() => {
-    if (cameraState !== "ready" || !barcodeSupported) return;
+    if (cameraState !== "ready") return;
     let stopped = false;
     async function scanBarcode() {
       if (stopped) return;
@@ -110,7 +109,7 @@ export function AddProductFlow() {
     }
     scanBarcode();
     return () => { stopped = true; };
-  }, [cameraState, barcodeSupported]);
+  }, [cameraState]);
 
   function startRecording() {
     if (cameraState !== "ready") {
@@ -318,7 +317,7 @@ export function AddProductFlow() {
             Point the barcode at the camera to auto-detect it, or type it manually below. If SKU is empty, it fills from the detected barcode.
           </p>
           <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
-            {barcodeSupported ? "Barcode/OCR scanner active" : "Browser barcode scan unavailable - manual barcode entry works"}
+            Barcode scanner active — point product barcode at camera to auto-fill
           </div>
         </div>
 
