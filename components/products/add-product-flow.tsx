@@ -298,6 +298,16 @@ export function AddProductFlow() {
           <video ref={videoRef} autoPlay muted playsInline className="h-64 w-full object-cover" />
           <canvas ref={canvasRef} className="hidden" />
           <video ref={extractorRef} className="hidden" muted playsInline />
+          {cameraState === "ready" && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <div className="relative h-20 w-20">
+                <div className="absolute inset-1 rounded-full border border-white/40" />
+                <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
+              </div>
+            </div>
+          )}
           {isRecording && (
             <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-white" />

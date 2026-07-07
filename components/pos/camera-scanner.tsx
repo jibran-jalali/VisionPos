@@ -182,6 +182,16 @@ export function CameraScanner({
           )}
           <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
           <canvas ref={canvasRef} className="hidden" />
+          {cameraState === "ready" && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <div className="relative h-20 w-20">
+                <div className="absolute inset-1 rounded-full border border-white/40" />
+                <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
+              </div>
+            </div>
+          )}
           {lastBarcodeDisplay && (
             <div className="absolute bottom-2 left-2 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white">
               <Barcode className="mr-1 inline h-3 w-3" />{lastBarcodeDisplay}
