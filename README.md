@@ -36,7 +36,10 @@ Copy `.env.example` to `.env` and add your Neon connection string before running
 DATABASE_URL="postgresql://user:password@host.neon.tech/visionpos?sslmode=require"
 AUTH_SECRET="replace-with-a-long-random-secret"
 AUTH_URL="http://localhost:3000"
+AUTH_TRUST_HOST="true"
 ```
+
+For Vercel, do not use `AUTH_URL="http://localhost:3000"`. Either remove `AUTH_URL` and keep `AUTH_TRUST_HOST="true"`, or set `AUTH_URL` to your deployed URL, for example `https://your-app.vercel.app`.
 
 ## Current Screens
 

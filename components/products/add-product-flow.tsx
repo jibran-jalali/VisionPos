@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, Save, ScanLine, Trash2 } from "lucide-react";
+import { Camera, Loader2, Save, ScanLine, Square, Trash2, Videotape } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,9 @@ import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 type CapturedFrame = { blob: Blob; url: string };
 
-const TARGET_FRAME_COUNT = 3;
 const TRAINING_IMAGE_SIZE = 320;
-
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const FRAME_INTERVAL_SECONDS = 0.5;
+const MAX_TRAINING_FRAMES = 16;
 
 async function computeFrameEmbedding(blob: Blob): Promise<number[]> {
   const bitmap = await createImageBitmap(blob);
@@ -37,14 +34,18 @@ export function AddProductFlow() {
   const [initialQuantity, setInitialQuantity] = useState("0");
   const [reorderLevel, setReorderLevel] = useState("5");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("Camera starts automatically. Point the product barcode at the camera or type details manually.");
+  const [status, setStatus] = useState("Step 1: scan or enter barcode. Step 2: record a short product video for vision training.");
   const [isSaving, setIsSaving] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [capturedFrames, setCapturedFrames] = useState<CapturedFrame[]>([]);
   const [cameraState, setCameraState] = useState<"loading" | "ready" | "denied" | "error">("loading");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const extractorRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const capturedFramesRef = useRef<CapturedFrame[]>([]);
   const barcodeRef = useRef("");
   const skuRef = useRef("");
@@ -69,7 +70,7 @@ export function AddProductFlow() {
           await videoRef.current.play();
         }
         setCameraState("ready");
-        setStatus(barcodeSupported ? "Camera ready. Barcode auto-fill is active." : "Camera ready. Barcode auto-fill not supported in this browser.");
+        setStatus(barcodeSupported ? "Camera ready. Barcode scanner is active. Record video when product details are filled." : "Camera ready. Enter barcode manually, then record product video.");
       } catch (err) {
         if (!mounted) return;
         const msg = String(err);
@@ -111,45 +112,99 @@ export function AddProductFlow() {
     return () => { stopped = true; };
   }, [cameraState, barcodeSupported]);
 
-  async function captureOneFrame() {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2) return null;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    return blob ? { blob, url: URL.createObjectURL(blob) } : null;
-  }
-
-  async function autoCapturePhotos() {
+  function startRecording() {
     if (cameraState !== "ready") {
       setError("Camera is not ready yet.");
       return;
     }
+
+    if (!streamRef.current) return;
     setError("");
-    setIsCapturing(true);
+    chunksRef.current = [];
     setCapturedFrames((prev) => {
       prev.forEach((frame) => URL.revokeObjectURL(frame.url));
       return [];
     });
 
-    const labels = ["front", "side", "back"];
-    const frames: CapturedFrame[] = [];
-    for (let i = 0; i < TARGET_FRAME_COUNT; i++) {
-      setStatus(`Auto-capturing ${labels[i]} photo in ${i === 0 ? "1" : "0.8"}s... Rotate product slowly.`);
-      await wait(i === 0 ? 1000 : 800);
-      const frame = await captureOneFrame();
-      if (frame) {
-        frames.push(frame);
-        setCapturedFrames([...frames]);
-        setStatus(`Captured ${frames.length}/${TARGET_FRAME_COUNT} product photos.`);
-      }
+    try {
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm")
+          ? "video/webm"
+          : "";
+      const recorder = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        extractFramesFromVideo(blob);
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setIsRecording(true);
+      setStatus("Recording vision video... Move the product slowly: front, sides, top, and back.");
+    } catch {
+      setStatus("Could not start recording. Try Chrome or Edge.");
+    }
+  }
+
+  function stopRecording() {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    setIsRecording(false);
+  }
+
+  async function extractFramesFromVideo(blob: Blob) {
+    setIsExtracting(true);
+    setStatus("Extracting training frames from product video...");
+
+    const url = URL.createObjectURL(blob);
+    const video = extractorRef.current;
+    if (!video) {
+      setIsExtracting(false);
+      URL.revokeObjectURL(url);
+      return;
     }
 
-    setIsCapturing(false);
-    setStatus(frames.length === TARGET_FRAME_COUNT ? "Vision photos ready. Save product when details are complete." : "Could not capture all photos. Try again.");
+    video.src = url;
+    video.load();
+
+    await new Promise<void>((resolve) => {
+      video.onloadedmetadata = () => resolve();
+    });
+
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const frames: CapturedFrame[] = [];
+    const maxTime = Math.min(duration, FRAME_INTERVAL_SECONDS * MAX_TRAINING_FRAMES);
+
+    for (let t = 0; t < maxTime; t += FRAME_INTERVAL_SECONDS) {
+      video.currentTime = t;
+      await new Promise<void>((resolve) => {
+        video.onseeked = () => resolve();
+      });
+
+      const canvas = canvasRef.current;
+      if (!canvas) continue;
+
+      const sourceW = video.videoWidth || 640;
+      const sourceH = video.videoHeight || 480;
+      const scale = Math.min(TRAINING_IMAGE_SIZE / sourceW, TRAINING_IMAGE_SIZE / sourceH, 1);
+      canvas.width = Math.max(1, Math.round(sourceW * scale));
+      canvas.height = Math.max(1, Math.round(sourceH * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const frameBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+      if (frameBlob) frames.push({ blob: frameBlob, url: URL.createObjectURL(frameBlob) });
+    }
+
+    URL.revokeObjectURL(url);
+    setCapturedFrames(frames);
+    setIsExtracting(false);
+    setStatus(`${frames.length} training frames ready from ${Math.round(duration)}s video. Remove blurry frames, then save.`);
   }
 
   function removeFrame(index: number) {
@@ -199,13 +254,13 @@ export function AddProductFlow() {
 
       const { productId } = resData;
       if (capturedFrames.length > 0) {
-        setStatus("Building fast vision profile...");
+        setStatus("Building vision profile from video frames...");
         try {
           const embeddings = await Promise.all(capturedFrames.map((frame) => computeFrameEmbedding(frame.blob)));
           await fetch(`/api/products/${productId}/embeddings`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ embeddings, frameCount: embeddings.length, embeddingModel: "hsv_histogram_v2_3photo" }),
+            body: JSON.stringify({ embeddings, frameCount: embeddings.length, embeddingModel: "hsv_histogram_v2_video_frames" }),
           });
         } catch {
           setStatus("Product saved, but vision profile failed. You can still scan by barcode.");
@@ -228,7 +283,7 @@ export function AddProductFlow() {
       <CardHeader>
         <div>
           <CardTitle>Add product</CardTitle>
-          <CardDescription>Barcode auto-fill plus 3-photo vision training. No video recording needed.</CardDescription>
+          <CardDescription>Separate barcode scan/manual entry plus video-frame vision training.</CardDescription>
         </div>
       </CardHeader>
 
@@ -243,11 +298,28 @@ export function AddProductFlow() {
           )}
           <video ref={videoRef} autoPlay muted playsInline className="h-64 w-full object-cover" />
           <canvas ref={canvasRef} className="hidden" />
+          <video ref={extractorRef} className="hidden" muted playsInline />
+          {isRecording && (
+            <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+              REC
+            </div>
+          )}
           {barcode && (
             <div className="absolute bottom-3 left-3 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">
               <ScanLine className="mr-1 inline h-3.5 w-3.5" />{barcode}
             </div>
           )}
+        </div>
+
+        <div className="rounded-2xl bg-[#f1f7fb] p-4">
+          <p className="text-sm font-bold text-[#060b1f]">Barcode entry</p>
+          <p className="mt-1 text-sm leading-6 text-[#607080]">
+            Point the barcode at the camera to auto-detect it, or type it manually below. If SKU is empty, it fills from the detected barcode.
+          </p>
+          <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
+            {barcodeSupported ? "Barcode/OCR scanner active" : "Browser barcode scan unavailable - manual barcode entry works"}
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -287,19 +359,30 @@ export function AddProductFlow() {
         <div className="rounded-2xl bg-[#f1f7fb] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-bold text-[#060b1f]">Vision photos</p>
-              <p className="mt-1 text-sm leading-6 text-[#607080]">Capture front, side, and back automatically. Optional if barcode is available.</p>
+              <p className="text-sm font-bold text-[#060b1f]">Video vision training</p>
+              <p className="mt-1 text-sm leading-6 text-[#607080]">Record 5-8 seconds while slowly rotating the product. The app extracts frames automatically.</p>
             </div>
-            <Button type="button" variant="primary" onClick={autoCapturePhotos} disabled={cameraState !== "ready" || isCapturing || isSaving}>
-              {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-              {isCapturing ? "Capturing..." : "Auto-capture 3 photos"}
-            </Button>
+            {!isRecording ? (
+              <Button type="button" variant="primary" onClick={startRecording} disabled={cameraState !== "ready" || isExtracting || isSaving}>
+                {isExtracting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Videotape className="mr-2 h-4 w-4" />}
+                {isExtracting ? "Extracting..." : "Start video"}
+              </Button>
+            ) : (
+              <Button type="button" variant="danger" onClick={stopRecording}>
+                <Square className="mr-2 h-4 w-4" /> Stop video
+              </Button>
+            )}
           </div>
+          {isExtracting && (
+            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-[#eef2ff] px-4 py-3 text-sm font-semibold text-[#4f46e5]">
+              <Loader2 className="h-4 w-4 animate-spin" /> Extracting frames from video...
+            </div>
+          )}
           {capturedFrames.length > 0 && (
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-4 gap-2">
               {capturedFrames.map((frame, index) => (
                 <div key={frame.url} className="group relative overflow-hidden rounded-xl bg-black">
-                  <img src={frame.url} alt={`Vision photo ${index + 1}`} className="h-24 w-full object-cover" />
+                  <img src={frame.url} alt={`Training frame ${index + 1}`} className="h-20 w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removeFrame(index)}
@@ -319,7 +402,7 @@ export function AddProductFlow() {
           {status}
         </div>
 
-        <Button variant="gradient" type="button" onClick={saveAll} disabled={isSaving || isCapturing}>
+        <Button variant="gradient" type="button" onClick={saveAll} disabled={isSaving || isRecording || isExtracting}>
           <Save className="mr-2 h-4 w-4" />
           {isSaving ? "Saving..." : "Save product"}
         </Button>
