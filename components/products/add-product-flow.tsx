@@ -253,13 +253,44 @@ export function AddProductFlow() {
 
       const { productId } = resData;
       if (capturedFrames.length > 0) {
-        setStatus("Building vision profile from video frames...");
+        setStatus("Building AI vision profile from video frames...");
         try {
-          const embeddings = await Promise.all(capturedFrames.map((frame) => computeFrameEmbedding(frame.blob)));
+          let embeddings: number[][];
+          let embeddingModel: string;
+
+          try {
+            const { extractFeatures } = await import("@/lib/browser-vision/mobilenet");
+            const mobilenetEmbeddings: number[][] = [];
+            for (const frame of capturedFrames) {
+              const bitmap = await createImageBitmap(frame.blob);
+              const scale = Math.min(320 / bitmap.width, 320 / bitmap.height, 1);
+              const c = document.createElement("canvas");
+              c.width = Math.max(1, Math.round(bitmap.width * scale));
+              c.height = Math.max(1, Math.round(bitmap.height * scale));
+              c.getContext("2d")!.drawImage(bitmap, 0, 0, c.width, c.height);
+              bitmap.close();
+              const features = await extractFeatures(c);
+              if (features) mobilenetEmbeddings.push(features);
+            }
+            if (mobilenetEmbeddings.length > 0) {
+              const avg = mobilenetEmbeddings[0].map((_, i) =>
+                mobilenetEmbeddings.reduce((s, e) => s + e[i], 0) / mobilenetEmbeddings.length
+              );
+              embeddings = [avg];
+              embeddingModel = "mobilenet_v2";
+            } else {
+              throw new Error("No MobileNet features extracted");
+            }
+          } catch {
+            const fallback = await Promise.all(capturedFrames.map((f) => computeFrameEmbedding(f.blob)));
+            embeddings = fallback;
+            embeddingModel = "hsv_histogram_v2_video_frames";
+          }
+
           await fetch(`/api/products/${productId}/embeddings`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ embeddings, frameCount: embeddings.length, embeddingModel: "hsv_histogram_v2_video_frames" }),
+            body: JSON.stringify({ embeddings, frameCount: embeddings.length, embeddingModel }),
           });
         } catch {
           setStatus("Product saved, but vision profile failed. You can still scan by barcode.");

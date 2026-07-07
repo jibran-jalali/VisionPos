@@ -102,6 +102,64 @@ export function matchCanvas(canvas: HTMLCanvasElement, profiles: ProfileData[]):
   return matchHistogram(computeHistogram(canvas), profiles);
 }
 
+export async function matchCanvasAll(
+  canvas: HTMLCanvasElement,
+  profiles: ProfileData[]
+): Promise<MatchResult | null> {
+  if (!profiles.length) return null;
+
+  const hsvQuery = computeHistogram(canvas);
+  let mobilenetQuery: number[] | null = null;
+  const hasMobilenet = profiles.some((p) => p.embeddingModel === "mobilenet_v2");
+  if (hasMobilenet) {
+    try {
+      const { extractFeatures } = await import("./mobilenet");
+      mobilenetQuery = await extractFeatures(canvas);
+    } catch {}
+  }
+
+  function resolveQuery(profile: ProfileData): number[] | null {
+    if (profile.embeddingModel === "mobilenet_v2") return mobilenetQuery;
+    return hsvQuery;
+  }
+
+  type ScoredMatch = { productId: string; productName: string | null; sku: string | null; score: number };
+  let best: ScoredMatch | null = null;
+  let secondBest: ScoredMatch | null = null;
+
+  for (const profile of profiles) {
+    if (!profile.embeddings || profile.embeddings.length === 0) continue;
+    const query = resolveQuery(profile);
+    if (!query) continue;
+
+    let maxScore = 0;
+    for (const emb of profile.embeddings) {
+      const score = cosineSimilarity(query, emb);
+      if (score > maxScore) maxScore = score;
+    }
+    if (!best || maxScore > best.score) {
+      secondBest = best;
+      best = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
+    } else if (!secondBest || maxScore > secondBest.score) {
+      secondBest = { productId: profile.productId, productName: profile.productName, sku: profile.sku, score: maxScore };
+    }
+  }
+
+  if (!best) return null;
+
+  const margin = best.score - (secondBest?.score ?? 0);
+  const accepted = best.score >= CONFIDENCE_THRESHOLD && margin > 0.15;
+
+  return {
+    productId: best.productId,
+    productName: best.productName,
+    sku: best.sku,
+    score: Math.round(best.score * 10000) / 10000,
+    accepted,
+    matchType: "vision",
+  };
+}
+
 export function matchFrame(frameBlob: Blob, profiles: ProfileData[]): Promise<MatchResult | null> {
   return new Promise((resolve, reject) => {
     const img = new Image();

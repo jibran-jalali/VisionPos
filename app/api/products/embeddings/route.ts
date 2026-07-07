@@ -10,7 +10,7 @@ export async function GET() {
 
   const profiles = await prisma.productVisualProfile.findMany({
     where: { businessId: session.user.businessId, profileStatus: "READY" },
-    select: { productId: true, embeddings: true, product: { select: { name: true, sku: true, barcode: true } } },
+    select: { productId: true, embeddings: true, embeddingModel: true, product: { select: { name: true, sku: true, barcode: true } } },
   });
 
   const mapped = profiles
@@ -21,6 +21,7 @@ export async function GET() {
       sku: p.product.sku,
       barcode: p.product.barcode,
       embeddings: p.embeddings as number[][],
+      embeddingModel: p.embeddingModel,
     }));
 
   return NextResponse.json({ profiles: mapped });

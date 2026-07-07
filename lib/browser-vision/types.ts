@@ -3,6 +3,7 @@ export type ProfileData = {
   productName: string;
   sku: string | null;
   embeddings: number[][];
+  embeddingModel: string | null;
   frameCount: number;
 };
 

@@ -4,7 +4,7 @@ import { Barcode, Loader2, ScanLine } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { detectBarcode } from "@/lib/browser-vision/barcode";
-import { matchCanvas } from "@/lib/browser-vision/histogram";
+import { matchCanvasAll } from "@/lib/browser-vision/histogram";
 import type { ProfileData } from "@/lib/browser-vision/types";
 import type { CheckoutProduct } from "@/components/pos/checkout-console";
 
@@ -93,7 +93,7 @@ export function CameraScanner({
       canvas.width = Math.max(1, Math.round(sourceW * scale));
       canvas.height = Math.max(1, Math.round(sourceH * scale));
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const result = matchCanvas(canvas, visionProfilesRef.current);
+      const result = await matchCanvasAll(canvas, visionProfilesRef.current);
       if (result?.accepted) {
         if (result.productId === visionConsecutiveProductRef.current) {
           visionConsecutiveCountRef.current++;
