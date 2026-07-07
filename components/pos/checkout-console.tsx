@@ -13,6 +13,20 @@ import { isPrinterConnected, printReceipt } from "@/lib/escpos-printer";
 import { buildReceiptLines } from "@/lib/receipt-builder";
 import type { InvoicePrintData } from "@/lib/invoice-data";
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  drinks: "🥤", beverages: "🥤", food: "🍔", snacks: "🍿", electronics: "📱",
+  clothing: "👕", grocery: "🛒", dairy: "🧀", bakery: "🍞", meat: "🥩",
+  fruit: "🍎", vegetables: "🥬", seafood: "🐟", default: "📦",
+};
+
+function getProductEmoji(category: string): string {
+  const key = category.toLowerCase();
+  for (const [k, v] of Object.entries(CATEGORY_EMOJI)) {
+    if (key.includes(k)) return v;
+  }
+  return CATEGORY_EMOJI.default;
+}
+
 export type CheckoutProduct = {
   id: string;
   name: string;
@@ -54,6 +68,11 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
   const [showInvoicePopup, setShowInvoicePopup] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState<InvoicePrintData | null>(null);
   const [sizePickerProduct, setSizePickerProduct] = useState<CheckoutProduct | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const filteredProducts = useMemo(() => {
+    if (!categoryFilter) return products;
+    return products.filter((p) => p.category === categoryFilter);
+  }, [products, categoryFilter]);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const discount = subtotal > 1000 ? 100 : 0;
@@ -219,25 +238,44 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
             </div>
           </div>
         ) : (
-          <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <button
-              key={product.id}
-              onClick={() => addOrPickSize(product)}
-              disabled={product.stock <= 0}
-              className="group flex min-h-44 flex-col justify-between rounded-[30px] border border-[#dfebf3] bg-[#fbfdff] p-5 text-left transition hover:-translate-y-1 hover:border-[#15bdf2] hover:shadow-[0_18px_42px_rgba(21,189,242,0.14)]"
-            >
-              <span className="flex h-14 w-14 items-center justify-center rounded-3xl text-lg font-semibold text-white" style={{ background: product.color }}>
-                {product.name.slice(0, 2).toUpperCase()}
-              </span>
-              <span>
-                <span className="block font-semibold leading-tight text-[#060b1f]">{product.name}</span>
-                <span className="mt-2 block text-sm font-bold text-[#607080]">{product.sku} · Stock {product.stock}</span>
-                <span className="mt-3 block text-xl font-semibold text-[#0284c7]">{formatMoney(product.price)}</span>
-              </span>
-            </button>
-          ))}
-          </div>
+          <>
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              {["All", ...Array.from(new Set(products.map((p) => p.category)))].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat === "All" ? null : cat)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                    (cat === "All" && !categoryFilter) || categoryFilter === cat
+                      ? "bg-[#060b1f] text-white"
+                      : "bg-[#f1f7fb] text-[#607080] hover:bg-[#e4edf5]"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="grid flex-1 grid-cols-3 gap-3 md:grid-cols-4 xl:grid-cols-5">
+              {filteredProducts.map((product) => (
+                <button
+                  key={product.id}
+                  onClick={() => addOrPickSize(product)}
+                  disabled={product.stock <= 0}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#f0f4f8] bg-white text-left shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:border-[#15bdf2] hover:shadow-[0_8px_24px_rgba(21,189,242,0.12)]"
+                >
+                  <div className="flex aspect-square items-center justify-center text-4xl" style={{ background: `${product.color}12` }}>
+                    {getProductEmoji(product.category)}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-1 p-3">
+                    <span className="text-xs font-semibold leading-tight text-[#060b1f] line-clamp-2">{product.name}</span>
+                    <span className="text-sm font-bold text-[#f97316]">{formatMoney(product.price)}</span>
+                  </div>
+                  <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#f97316] text-white opacity-0 shadow-md transition group-hover:opacity-100">
+                    <Plus className="h-4 w-4" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </section>
 
