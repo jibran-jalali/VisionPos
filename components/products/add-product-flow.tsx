@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RunActionButton } from "@/components/ui/run-action-button";
-import { detectBarcodeFromCanvas } from "@/lib/browser-vision/barcode";
+import { detectBarcode, detectBarcodeFromCanvas } from "@/lib/browser-vision/barcode";
 import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 type CapturedFrame = { blob: Blob; url: string };
@@ -63,6 +63,7 @@ export function AddProductFlow() {
   const skuRef = useRef("");
   const barcodeScanRunningRef = useRef(false);
   const lastBarcodeScanAtRef = useRef(0);
+  const barcodeScanAttemptsRef = useRef(0);
   const scannerBufferRef = useRef("");
   const scannerFirstKeyAtRef = useRef(0);
   const scannerLastKeyAtRef = useRef(0);
@@ -95,16 +96,48 @@ export function AddProductFlow() {
     }
   }
 
-  function copyVideoFrameForBarcode(video: HTMLVideoElement) {
+  function copyVideoFrameForBarcode(video: HTMLVideoElement, mode: "full" | "center" | "strip") {
     const sourceW = video.videoWidth || 640;
     const sourceH = video.videoHeight || 480;
-    const scale = Math.min(720 / sourceW, 720 / sourceH, 1);
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceW;
+    let sh = sourceH;
+
+    if (mode === "center") {
+      sw = sourceW * 0.72;
+      sh = sourceH * 0.72;
+      sx = (sourceW - sw) / 2;
+      sy = (sourceH - sh) / 2;
+    }
+
+    if (mode === "strip") {
+      sw = sourceW * 0.92;
+      sh = sourceH * 0.46;
+      sx = (sourceW - sw) / 2;
+      sy = (sourceH - sh) / 2;
+    }
+
+    const scale = Math.min(820 / sw, 820 / sh, 1.7);
     const canvas = barcodeCanvasRef.current || document.createElement("canvas");
     barcodeCanvasRef.current = canvas;
-    canvas.width = Math.max(1, Math.round(sourceW * scale));
-    canvas.height = Math.max(1, Math.round(sourceH * scale));
-    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.width = Math.max(1, Math.round(sw * scale));
+    canvas.height = Math.max(1, Math.round(sh * scale));
+    canvas.getContext("2d")?.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     return canvas;
+  }
+
+  async function scanBarcodeFrame(video: HTMLVideoElement) {
+    const direct = await detectBarcode(video, { fallback: true, maxSize: 720 });
+    if (direct) return direct;
+
+    const full = await detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "full"));
+    if (full) return full;
+
+    const strip = await detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "strip"));
+    if (strip) return strip;
+
+    return detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "center"));
   }
 
   useEffect(() => {
@@ -151,18 +184,25 @@ export function AddProductFlow() {
       if (stopped) return;
       const now = Date.now();
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 140) {
+      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 220) {
         barcodeScanRunningRef.current = true;
         lastBarcodeScanAtRef.current = now;
         try {
-          const frame = copyVideoFrameForBarcode(video);
-          const value = await detectBarcodeFromCanvas(frame);
-          if (value) applyBarcodeValue(value, "camera");
+          const value = await scanBarcodeFrame(video);
+          if (value) {
+            barcodeScanAttemptsRef.current = 0;
+            applyBarcodeValue(value, "camera");
+          } else {
+            barcodeScanAttemptsRef.current++;
+            if (barcodeScanAttemptsRef.current === 12) {
+              setStatus("Still scanning barcode... move closer, keep it flat, and fill most of the square.");
+            }
+          }
         } finally {
           barcodeScanRunningRef.current = false;
         }
       }
-      window.setTimeout(scanBarcode, 80);
+      window.setTimeout(scanBarcode, 90);
     }
     scanBarcode();
     return () => { stopped = true; };
@@ -423,199 +463,204 @@ export function AddProductFlow() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="p-4 xl:p-5">
+      <CardHeader className="mb-3">
         <div>
           <CardTitle>Add product</CardTitle>
-          <CardDescription>Separate barcode scan/manual entry plus video-frame vision training.</CardDescription>
+          <CardDescription className="text-xs leading-5">Scan barcode, enter details, record training video.</CardDescription>
         </div>
       </CardHeader>
 
-      <div className="grid gap-3">
-        {error && <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</div>}
+      <div className="grid gap-3 xl:grid-cols-[320px_1fr]">
+        <div className="grid gap-2">
+          {error && <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</div>}
 
-        <div className="relative overflow-hidden rounded-xl bg-black">
-          {cameraState === "loading" && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
-              <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+          <div className="relative overflow-hidden rounded-xl bg-black">
+            {cameraState === "loading" && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+                <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+              </div>
+            )}
+            <video ref={videoRef} autoPlay muted playsInline className="aspect-square w-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            <video ref={extractorRef} className="hidden" muted playsInline />
+            {cameraState === "ready" && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                <div className="relative h-20 w-20">
+                  <div className="absolute inset-1 rounded-full border border-white/40" />
+                  <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                  <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+                  <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
+                </div>
+              </div>
+            )}
+            {isRecording && (
+              <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                REC
+              </div>
+            )}
+            {barcode ? (
+              <div className="absolute bottom-3 left-3 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">
+                <ScanLine className="mr-1 inline h-3.5 w-3.5" />{barcode}
+              </div>
+            ) : cameraState === "ready" ? (
+              <div className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1.5 text-xs font-bold text-white">
+                <ScanLine className="mr-1 inline h-3.5 w-3.5 animate-pulse" />Scanning barcode...
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl bg-[#f1f7fb] p-2">
+            <div className="rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
+              <ScanLine className="mr-1.5 inline h-3.5 w-3.5 text-emerald-600" />
+              Camera or USB scanner auto-fills barcode/SKU
             </div>
-          )}
-          <video ref={videoRef} autoPlay muted playsInline className="aspect-square w-full object-cover" />
-          <canvas ref={canvasRef} className="hidden" />
-          <video ref={extractorRef} className="hidden" muted playsInline />
-          {cameraState === "ready" && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="relative h-20 w-20">
-                <div className="absolute inset-1 rounded-full border border-white/40" />
-                <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
-                <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
-                <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
+          </div>
+
+          <div className="rounded-xl bg-[#f1f7fb] p-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-[#060b1f]">Vision training</p>
+                <p className="mt-0.5 truncate text-[11px] text-[#607080]">Record 5-8s rotating product.</p>
+              </div>
+              <RunActionButton
+                steps={recordSteps}
+                idleLabel={isExtracting ? "Extracting..." : "Record video"}
+                doneLabel="Video ready"
+                intervalMs={950}
+                idleWidth={145}
+                runningWidth={255}
+                doneWidth={155}
+                disabled={cameraState !== "ready" || isExtracting || isSaving}
+                onStart={startRecording}
+                onCancel={stopRecording}
+                onComplete={stopRecording}
+              />
+            </div>
+            {isExtracting && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#eef2ff] px-3 py-1.5 text-xs font-semibold text-[#4f46e5]">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Extracting frames...
+              </div>
+            )}
+            {capturedFrames.length > 0 && (
+              <div className="mt-2 grid max-h-24 grid-cols-8 gap-1 overflow-y-auto pr-1">
+                {capturedFrames.map((frame, index) => (
+                  <div key={frame.url} className="group relative overflow-hidden rounded-lg bg-black">
+                    <img src={frame.url} alt={`Frame ${index + 1}`} className="h-10 w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeFrame(index)}
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/65 text-white opacity-0 transition group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-bold text-white">{index + 1}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid content-start gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Product name</label>
+              <Input placeholder="Coke 500ml" value={name} onChange={(e) => setName(e.target.value)} required className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">SKU</label>
+              <Input placeholder="Auto-filled from barcode" value={sku} onChange={(e) => setSku(e.target.value)} required className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Barcode</label>
+              <Input placeholder="Point barcode at camera" value={barcode} onChange={(e) => handleBarcodeInput(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Category</label>
+              <Input placeholder="Drinks" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Price</label>
+              <Input type="number" min="1" step="0.01" placeholder="120" value={price} onChange={(e) => setPrice(e.target.value)} required className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Stock</label>
+              <Input type="number" min="0" step="1" value={initialQuantity} onChange={(e) => setInitialQuantity(e.target.value)} required className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#060b1f]">Low alert</label>
+              <Input type="number" min="0" step="1" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} required className="h-9 text-sm" />
+            </div>
+          </div>
+
+          {variants.length > 0 && (
+            <div className="rounded-xl bg-[#f1f7fb] p-2.5">
+              <p className="mb-2 text-xs font-bold text-[#060b1f]">Size Variations</p>
+              <div className="max-h-32 space-y-2 overflow-y-auto pr-1">
+                {variants.map((v, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      placeholder="e.g. Small, Medium, Large"
+                      value={v.name}
+                      onChange={(e) => updateVariant(i, "name", e.target.value)}
+                      className="h-8 flex-1 text-sm"
+                    />
+                    <div className="relative w-24">
+                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#607080]">+</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="+0"
+                        value={v.priceAdj}
+                        onChange={(e) => updateVariant(i, "priceAdj", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                        className="h-8 w-full pl-5 text-sm"
+                      />
+                    </div>
+                    <Input
+                      placeholder="SKU"
+                      value={v.sku}
+                      onChange={(e) => updateVariant(i, "sku", e.target.value)}
+                      className="h-8 w-24 text-sm"
+                    />
+                    <Input
+                      placeholder="Barcode"
+                      value={v.barcode}
+                      onChange={(e) => updateVariant(i, "barcode", e.target.value)}
+                      className="h-8 w-24 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(i)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[24px] text-[#607080] transition hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-          {isRecording && (
-            <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-              REC
+
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="soft" size="sm" onClick={addVariant} className="h-8 text-xs">
+              <Plus className="mr-1 h-3.5 w-3.5" /> Add Size
+            </Button>
+            <div className="min-w-0 flex-1 rounded-lg bg-[#f1f7fb] px-3 py-2 text-xs font-medium text-[#607080]">
+              <span className="line-clamp-1">{status}</span>
             </div>
-          )}
-          {barcode && (
-            <div className="absolute bottom-3 left-3 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">
-              <ScanLine className="mr-1 inline h-3.5 w-3.5" />{barcode}
-            </div>
-          )}
-          {cameraState === "ready" && !barcode && (
-            <div className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1.5 text-xs font-bold text-white">
-              <ScanLine className="mr-1 inline h-3.5 w-3.5 animate-pulse" />Scanning barcode...
-            </div>
-          )}
+          </div>
+
+          <Button variant="gradient" type="button" onClick={saveAll} disabled={isSaving || isRecording || isExtracting} className="h-10 text-sm">
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "Saving..." : "Save product"}
+          </Button>
         </div>
-
-        <div className="rounded-xl bg-[#f1f7fb] p-3">
-          <div className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
-            <ScanLine className="mr-1.5 inline h-3.5 w-3.5 text-emerald-600" />
-            Barcode scanner active — point camera at barcode or use a USB scanner to auto-fill
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Product name</label>
-            <Input placeholder="Coke 500ml" value={name} onChange={(e) => setName(e.target.value)} required className="h-9 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">SKU</label>
-            <Input placeholder="Auto-filled from barcode" value={sku} onChange={(e) => setSku(e.target.value)} required className="h-9 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Barcode</label>
-            <Input placeholder="Point barcode at camera" value={barcode} onChange={(e) => handleBarcodeInput(e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Category</label>
-            <Input placeholder="Drinks" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} className="h-9 text-sm" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Price</label>
-            <Input type="number" min="1" step="0.01" placeholder="120" value={price} onChange={(e) => setPrice(e.target.value)} required className="h-9 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Stock</label>
-            <Input type="number" min="0" step="1" value={initialQuantity} onChange={(e) => setInitialQuantity(e.target.value)} required className="h-9 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#060b1f]">Low alert</label>
-            <Input type="number" min="0" step="1" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} required className="h-9 text-sm" />
-          </div>
-        </div>
-
-        {variants.length > 0 && (
-          <div className="rounded-xl bg-[#f1f7fb] p-3">
-            <p className="mb-2 text-xs font-bold text-[#060b1f]">Size Variations</p>
-            <div className="space-y-2">
-              {variants.map((v, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    placeholder="e.g. Small, Medium, Large"
-                    value={v.name}
-                    onChange={(e) => updateVariant(i, "name", e.target.value)}
-                    className="h-9 flex-1 text-sm"
-                  />
-                  <div className="relative w-24">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#607080]">+</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="+0"
-                      value={v.priceAdj}
-                      onChange={(e) => updateVariant(i, "priceAdj", e.target.value === "" ? 0 : parseFloat(e.target.value))}
-                      className="h-9 w-full pl-5 text-sm"
-                    />
-                  </div>
-                  <Input
-                    placeholder="SKU"
-                    value={v.sku}
-                    onChange={(e) => updateVariant(i, "sku", e.target.value)}
-                    className="h-9 w-28 text-sm"
-                  />
-                  <Input
-                    placeholder="Barcode"
-                    value={v.barcode}
-                    onChange={(e) => updateVariant(i, "barcode", e.target.value)}
-                    className="h-9 w-28 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeVariant(i)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[24px] text-[#607080] transition hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <Button type="button" variant="soft" size="sm" onClick={addVariant} className="h-8 text-xs">
-          <Plus className="mr-1 h-3.5 w-3.5" /> Add Size
-        </Button>
-
-        <div className="rounded-xl bg-[#f1f7fb] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-xs font-bold text-[#060b1f]">Video vision training</p>
-              <p className="mt-0.5 text-xs text-[#607080]">Record 5-8s rotating the product. Frames extracted automatically.</p>
-            </div>
-            <RunActionButton
-              steps={recordSteps}
-              idleLabel={isExtracting ? "Extracting..." : "Record video"}
-              doneLabel="Video ready"
-              intervalMs={950}
-              idleWidth={150}
-              runningWidth={320}
-              doneWidth={170}
-              disabled={cameraState !== "ready" || isExtracting || isSaving}
-              onStart={startRecording}
-              onCancel={stopRecording}
-              onComplete={stopRecording}
-            />
-          </div>
-          {isExtracting && (
-            <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#eef2ff] px-3 py-2 text-xs font-semibold text-[#4f46e5]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Extracting frames from video...
-            </div>
-          )}
-          {capturedFrames.length > 0 && (
-            <div className="mt-2 grid grid-cols-8 gap-1.5">
-              {capturedFrames.map((frame, index) => (
-                <div key={frame.url} className="group relative overflow-hidden rounded-lg bg-black">
-                  <img src={frame.url} alt={`Frame ${index + 1}`} className="h-12 w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeFrame(index)}
-                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/65 text-white opacity-0 transition group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                  <div className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-bold text-white">{index + 1}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-lg bg-[#f1f7fb] px-3 py-2 text-xs font-medium text-[#607080]">
-          {status}
-        </div>
-
-        <Button variant="gradient" type="button" onClick={saveAll} disabled={isSaving || isRecording || isExtracting} className="h-10 text-sm">
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Saving..." : "Save product"}
-        </Button>
       </div>
     </Card>
   );

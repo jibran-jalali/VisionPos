@@ -13,11 +13,11 @@ export default async function NewProductPage() {
     <DashboardShell title="Add Product" eyebrow="Catalog management">
       <Link
         href="/dashboard/products"
-        className="mb-6 flex items-center gap-2 text-sm font-semibold text-[#607080] transition hover:text-[#060b1f]"
+        className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#607080] transition hover:text-[#060b1f]"
       >
         <ArrowLeft className="h-4 w-4" /> Back to products
       </Link>
-      <div className="max-w-2xl">
+      <div className="max-w-6xl">
         <AddProductFlow />
       </div>
     </DashboardShell>
