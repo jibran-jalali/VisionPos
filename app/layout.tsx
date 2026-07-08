@@ -9,9 +9,14 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "VisionPOS",
-  description: "AI-ready point of sale for modern retail teams.",
+  title: "VisionPOS — Browser POS for Retail Shops",
+  description: "Run your shop from any browser. Barcode scanning, camera vision, inventory, receipts, and roles — no downloads, no setup. Start free.",
   icons: { icon: [{ url: "/favicon.png", sizes: "128x128", type: "image/png" }] },
+  openGraph: {
+    title: "VisionPOS — Browser POS for Retail Shops",
+    description: "Scan barcodes, use camera vision, manage stock, print receipts. Works on any device. No downloads.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
