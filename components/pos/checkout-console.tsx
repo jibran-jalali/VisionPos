@@ -1,11 +1,12 @@
 "use client";
 
-import { Minus, Plus, Printer, Search, Trash2, Wifi } from "lucide-react";
+import { Plus, Printer, Search, Trash2, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Stepper } from "@/components/ui/stepper";
 import { CameraScanner } from "@/components/pos/camera-scanner";
 import { InvoicePopup } from "@/components/pos/invoice-popup";
 import { formatMoney } from "@/lib/currency";
@@ -125,6 +126,14 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
         .map((item) =>
           item.cartKey === cartKey ? { ...item, quantity: item.quantity + amount } : item,
         )
+        .filter((item) => item.quantity > 0),
+    );
+  }
+
+  function setItemQuantity(cartKey: string, quantity: number) {
+    setCart((current) =>
+      current
+        .map((item) => (item.cartKey === cartKey ? { ...item, quantity } : item))
         .filter((item) => item.quantity > 0),
     );
   }
@@ -309,11 +318,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
                 </button>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => updateQuantity(item.cartKey, -1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Minus className="h-4 w-4" /></button>
-                  <span className="flex h-11 min-w-12 items-center justify-center rounded-2xl bg-[#060b1f] px-4 font-semibold text-white">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.cartKey, 1)} className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#060b1f] ring-1 ring-[#dfebf3]"><Plus className="h-4 w-4" /></button>
-                </div>
+                <Stepper value={item.quantity} min={0} max={999} size="sm" onChange={(quantity) => setItemQuantity(item.cartKey, quantity)} />
                 <strong className="text-xl text-[#060b1f]">{formatMoney(item.price * item.quantity)}</strong>
               </div>
             </div>

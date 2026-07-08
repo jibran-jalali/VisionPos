@@ -5,7 +5,7 @@ import { Loader2, Plus, Save, ScanLine, Square, Trash2, Videotape } from "lucide
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { detectBarcode } from "@/lib/browser-vision/barcode";
+import { detectBarcodeFromCanvas } from "@/lib/browser-vision/barcode";
 import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 type CapturedFrame = { blob: Blob; url: string };
@@ -43,6 +43,7 @@ export function AddProductFlow() {
   const [cameraState, setCameraState] = useState<"loading" | "ready" | "denied" | "error">("loading");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const barcodeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const extractorRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -52,7 +53,6 @@ export function AddProductFlow() {
   const skuRef = useRef("");
   const barcodeScanRunningRef = useRef(false);
   const lastBarcodeScanAtRef = useRef(0);
-  const lastZxingScanAtRef = useRef(0);
   const scannerBufferRef = useRef("");
   const scannerFirstKeyAtRef = useRef(0);
   const scannerLastKeyAtRef = useRef(0);
@@ -83,6 +83,18 @@ export function AddProductFlow() {
     if (!skuRef.current.trim() || skuRef.current.trim() === previousBarcode) {
       setSku(value.trim());
     }
+  }
+
+  function copyVideoFrameForBarcode(video: HTMLVideoElement) {
+    const sourceW = video.videoWidth || 640;
+    const sourceH = video.videoHeight || 480;
+    const scale = Math.min(720 / sourceW, 720 / sourceH, 1);
+    const canvas = barcodeCanvasRef.current || document.createElement("canvas");
+    barcodeCanvasRef.current = canvas;
+    canvas.width = Math.max(1, Math.round(sourceW * scale));
+    canvas.height = Math.max(1, Math.round(sourceH * scale));
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
   }
 
   useEffect(() => {
@@ -129,19 +141,18 @@ export function AddProductFlow() {
       if (stopped) return;
       const now = Date.now();
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 80) {
+      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 140) {
         barcodeScanRunningRef.current = true;
         lastBarcodeScanAtRef.current = now;
-        const useZxingFallback = now - lastZxingScanAtRef.current > 220;
-        if (useZxingFallback) lastZxingScanAtRef.current = now;
         try {
-          const value = await detectBarcode(video, { fallback: useZxingFallback, maxSize: 420 });
+          const frame = copyVideoFrameForBarcode(video);
+          const value = await detectBarcodeFromCanvas(frame);
           if (value) applyBarcodeValue(value, "camera");
         } finally {
           barcodeScanRunningRef.current = false;
         }
       }
-      window.setTimeout(scanBarcode, 70);
+      window.setTimeout(scanBarcode, 80);
     }
     scanBarcode();
     return () => { stopped = true; };
@@ -441,6 +452,11 @@ export function AddProductFlow() {
           {barcode && (
             <div className="absolute bottom-3 left-3 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white">
               <ScanLine className="mr-1 inline h-3.5 w-3.5" />{barcode}
+            </div>
+          )}
+          {cameraState === "ready" && !barcode && (
+            <div className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1.5 text-xs font-bold text-white">
+              <ScanLine className="mr-1 inline h-3.5 w-3.5 animate-pulse" />Scanning barcode...
             </div>
           )}
         </div>
