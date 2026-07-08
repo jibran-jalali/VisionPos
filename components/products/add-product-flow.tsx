@@ -50,10 +50,40 @@ export function AddProductFlow() {
   const capturedFramesRef = useRef<CapturedFrame[]>([]);
   const barcodeRef = useRef("");
   const skuRef = useRef("");
+  const barcodeScanRunningRef = useRef(false);
+  const lastBarcodeScanAtRef = useRef(0);
+  const lastZxingScanAtRef = useRef(0);
+  const scannerBufferRef = useRef("");
+  const scannerFirstKeyAtRef = useRef(0);
+  const scannerLastKeyAtRef = useRef(0);
 
   useEffect(() => { barcodeRef.current = barcode; }, [barcode]);
   useEffect(() => { skuRef.current = sku; }, [sku]);
   useEffect(() => { capturedFramesRef.current = capturedFrames; }, [capturedFrames]);
+
+  function applyBarcodeValue(rawValue: string, source: "camera" | "scanner" | "manual") {
+    const value = rawValue.trim();
+    if (!value) return false;
+
+    const previousBarcode = barcodeRef.current.trim();
+    if (value === previousBarcode) return false;
+
+    setBarcode(value);
+    if (!skuRef.current.trim() || skuRef.current.trim() === previousBarcode) {
+      setSku(value);
+    }
+    setError("");
+    setStatus(source === "manual" ? `Barcode entered: ${value}` : `Barcode captured automatically: ${value}`);
+    return true;
+  }
+
+  function handleBarcodeInput(value: string) {
+    const previousBarcode = barcodeRef.current.trim();
+    setBarcode(value);
+    if (!skuRef.current.trim() || skuRef.current.trim() === previousBarcode) {
+      setSku(value.trim());
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -97,20 +127,59 @@ export function AddProductFlow() {
     let stopped = false;
     async function scanBarcode() {
       if (stopped) return;
+      const now = Date.now();
       const video = videoRef.current;
-      if (video && video.readyState >= 2) {
-        const value = await detectBarcode(video);
-        if (value && value !== barcodeRef.current) {
-          setBarcode(value);
-          if (!skuRef.current.trim()) setSku(value);
-          setStatus(`Barcode captured automatically: ${value}`);
+      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 80) {
+        barcodeScanRunningRef.current = true;
+        lastBarcodeScanAtRef.current = now;
+        const useZxingFallback = now - lastZxingScanAtRef.current > 220;
+        if (useZxingFallback) lastZxingScanAtRef.current = now;
+        try {
+          const value = await detectBarcode(video, { fallback: useZxingFallback, maxSize: 420 });
+          if (value) applyBarcodeValue(value, "camera");
+        } finally {
+          barcodeScanRunningRef.current = false;
         }
       }
-      window.setTimeout(scanBarcode, 180);
+      window.setTimeout(scanBarcode, 70);
     }
     scanBarcode();
     return () => { stopped = true; };
   }, [cameraState]);
+
+  useEffect(() => {
+    function handleScannerKey(event: KeyboardEvent) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+      const now = Date.now();
+      if (event.key === "Enter") {
+        const value = scannerBufferRef.current.trim();
+        const elapsed = now - scannerFirstKeyAtRef.current;
+        const averageKeyTime = value.length > 0 ? elapsed / value.length : Infinity;
+        scannerBufferRef.current = "";
+        scannerFirstKeyAtRef.current = 0;
+        scannerLastKeyAtRef.current = 0;
+
+        if (value.length >= 4 && elapsed < 900 && averageKeyTime < 80) {
+          event.preventDefault();
+          applyBarcodeValue(value, "scanner");
+        }
+        return;
+      }
+
+      if (event.key.length !== 1) return;
+
+      if (now - scannerLastKeyAtRef.current > 90) {
+        scannerBufferRef.current = "";
+        scannerFirstKeyAtRef.current = now;
+      }
+      scannerBufferRef.current += event.key;
+      scannerLastKeyAtRef.current = now;
+    }
+
+    window.addEventListener("keydown", handleScannerKey, true);
+    return () => window.removeEventListener("keydown", handleScannerKey, true);
+  }, []);
 
   function startRecording() {
     if (cameraState !== "ready") {
@@ -379,7 +448,7 @@ export function AddProductFlow() {
         <div className="rounded-xl bg-[#f1f7fb] p-3">
           <div className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
             <ScanLine className="mr-1.5 inline h-3.5 w-3.5 text-emerald-600" />
-            Barcode scanner active — point product barcode at camera to auto-fill
+            Barcode scanner active — point camera at barcode or use a USB scanner to auto-fill
           </div>
         </div>
 
@@ -394,7 +463,7 @@ export function AddProductFlow() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-[#060b1f]">Barcode</label>
-            <Input placeholder="Point barcode at camera" value={barcode} onChange={(e) => setBarcode(e.target.value)} className="h-9 text-sm" />
+            <Input placeholder="Point barcode at camera" value={barcode} onChange={(e) => handleBarcodeInput(e.target.value)} className="h-9 text-sm" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-[#060b1f]">Category</label>
