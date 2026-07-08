@@ -1,87 +1,126 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, Banknote, Barcode, Boxes, Camera, ReceiptText, Settings, Shield, ShoppingCart, Smartphone, Store, Users, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Banknote,
+  Barcode,
+  Boxes,
+  Camera,
+  CheckCircle2,
+  ReceiptText,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Store,
+  Users,
+  Zap,
+} from "lucide-react";
+import { Logo } from "@/components/brand/logo";
+
+const primaryButton =
+  "inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#15bdf2] via-[#6F35F5] to-[#9b5cff] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(111,53,245,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(111,53,245,0.28)]";
+const softButton =
+  "inline-flex items-center justify-center gap-2 rounded-2xl border border-[#dbeafe] bg-white px-7 py-3.5 text-sm font-semibold text-[#3056d3] shadow-[0_12px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-[#bfdbfe] hover:bg-[#f8fbff]";
 
 function BrowserMockup() {
+  const products = [
+    { emoji: "🥤", name: "Sprite 1ltr", price: "Rs 120", bg: "#e7f8ff" },
+    { emoji: "📦", name: "Bottle", price: "Rs 1,000", bg: "#f2ecff" },
+    { emoji: "🧃", name: "Drink", price: "Rs 850", bg: "#effbf5" },
+    { emoji: "🥤", name: "Pepsi 500ml", price: "Rs 80", bg: "#fff7e8" },
+  ];
+
   return (
-    <div className="relative mx-auto w-full max-w-[780px]">
-      <div className="overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.12)]">
-        <div className="flex items-center gap-2 border-b border-[#f1f5f9] bg-[#f8fafc] px-4 py-2.5">
-          <span className="h-3 w-3 rounded-full bg-[#ef4444]" />
-          <span className="h-3 w-3 rounded-full bg-[#f59e0b]" />
-          <span className="h-3 w-3 rounded-full bg-[#22c55e]" />
-          <div className="ml-4 flex-1 rounded-lg bg-white px-3 py-1 text-xs text-[#94a3b8] shadow-sm">visionpos.vercel.app/pos/checkout</div>
+    <div className="relative mx-auto w-full max-w-[920px]">
+      <div className="absolute -inset-10 -z-10 rounded-[44px] bg-[radial-gradient(circle_at_30%_20%,rgba(21,189,242,0.24),transparent_32%),radial-gradient(circle_at_75%_70%,rgba(111,53,245,0.20),transparent_34%)] blur-2xl" />
+      <div className="overflow-hidden rounded-[26px] border border-[#dce9f5] bg-white shadow-[0_42px_90px_rgba(15,23,42,0.15)]">
+        <div className="flex items-center gap-2 border-b border-[#eef4fb] bg-[#fbfdff] px-4 py-3">
+          <span className="h-3 w-3 rounded-full bg-[#ff6b57]" />
+          <span className="h-3 w-3 rounded-full bg-[#ffbd45]" />
+          <span className="h-3 w-3 rounded-full bg-[#32c95b]" />
+          <div className="ml-4 flex-1 rounded-xl bg-[#f1f5f9] px-4 py-1.5 text-xs font-medium text-[#94a3b8]">visionpos.app/pos/checkout</div>
+          <div className="hidden gap-2 md:flex">
+            <span className="h-7 w-7 rounded-lg bg-[#f1f5f9]" />
+            <span className="h-7 w-7 rounded-lg bg-[#f1f5f9]" />
+          </div>
         </div>
-        <div className="grid grid-cols-[1fr_280px] gap-0">
-          <div className="p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online counter
-              </span>
-            </div>
-            <h3 className="mb-3 text-lg font-semibold text-[#060b1f]">Main Store Checkout</h3>
-            <div className="mb-3 flex gap-2">
-              <div className="rounded-xl border border-[#f1f5f9] bg-[#f8fafc] px-3 py-2">
-                <p className="text-[9px] font-bold text-[#94a3b8]">CAMERA</p>
-                <p className="text-xs font-semibold text-[#060b1f]">Vision + Barcode</p>
+
+        <div className="grid gap-0 bg-[#f6faff] p-3 md:grid-cols-[1fr_330px]">
+          <div className="rounded-[24px] border border-[#dfebf3] bg-white p-5">
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online counter
+                </span>
+                <h3 className="mt-3 text-2xl font-semibold tracking-tight text-[#07132f]">Main Store Checkout</h3>
               </div>
-              <div className="rounded-xl border border-[#f1f5f9] bg-[#f8fafc] px-3 py-2">
-                <p className="text-[9px] font-bold text-[#94a3b8]">INVOICE</p>
-                <p className="text-xs font-semibold text-[#060b1f]">Receipt + A4</p>
+              <div className="relative w-full max-w-[300px] rounded-2xl border border-[#dfebf3] bg-white px-4 py-3 text-sm font-medium text-[#9aa8b5]">
+                Search or scan product...
               </div>
             </div>
-            <div className="mb-3 flex gap-1.5">
-              {["All", "Drinks", "Bottle", "Soaps"].map((c) => (
-                <span key={c} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${c === "All" ? "bg-[#060b1f] text-white" : "bg-[#f1f5f9] text-[#64748b]"}`}>{c}</span>
+
+            <div className="mb-5 grid grid-cols-3 gap-3">
+              {[
+                ["Camera checkout", "Vision + Barcode"],
+                ["Invoice mode", "Receipt + A4"],
+                ["Cashier", "Jibran Jalali"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[20px] border border-[#dfebf3] bg-[#fbfdff] px-4 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#7c8ca0]">{label}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#07132f]">{value}</p>
+                </div>
               ))}
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { emoji: "🥤", name: "Sprite 1ltr", price: "Rs 120", bg: "#eef2ff" },
-                { emoji: "📦", name: "Bottle", price: "Rs 1,000", bg: "#fdf2f8" },
-                { emoji: "📦", name: "Drink", price: "Rs 850", bg: "#f0fdf4" },
-                { emoji: "🥤", name: "Pepsi 500ml", price: "Rs 80", bg: "#fff7ed" },
-              ].map((p) => (
-                <div key={p.name} className="overflow-hidden rounded-xl border border-[#f1f5f9]">
-                  <div className="flex aspect-square items-center justify-center text-2xl" style={{ background: p.bg }}>{p.emoji}</div>
-                  <div className="p-1.5">
-                    <p className="text-[9px] font-semibold text-[#060b1f] leading-tight">{p.name}</p>
-                    <p className="mt-0.5 text-[10px] font-bold text-[#f97316]">{p.price}</p>
+
+            <div className="mb-4 flex gap-2 overflow-hidden">
+              {["All", "Drinks", "Bottle", "Soaps", "Snacks"].map((c) => (
+                <span
+                  key={c}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    c === "All" ? "bg-gradient-to-r from-[#15bdf2] to-[#6F35F5] text-white shadow-sm" : "bg-[#f1f7fb] text-[#607080]"
+                  }`}
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              {products.map((p) => (
+                <div key={p.name} className="overflow-hidden rounded-[20px] border border-[#edf4fa] bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+                  <div className="flex aspect-square items-center justify-center text-3xl" style={{ background: p.bg }}>
+                    {p.emoji}
+                  </div>
+                  <div className="p-3">
+                    <p className="text-[11px] font-semibold leading-tight text-[#07132f]">{p.name}</p>
+                    <p className="mt-1 text-xs font-bold text-[#ff6b00]">{p.price}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="border-l border-[#f1f5f9] bg-[#f8fafc] p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700">Current cart</span>
-              <span className="text-[10px] font-semibold text-[#94a3b8]">Clear</span>
+
+          <div className="mt-3 rounded-[24px] border border-[#dfebf3] bg-white p-5 md:ml-3 md:mt-0">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="rounded-full bg-[#e7f8ff] px-3 py-1 text-xs font-bold text-[#0284c7]">Current cart</span>
+              <span className="rounded-xl border border-[#dfebf3] px-3 py-2 text-xs font-semibold text-[#607080]">Clear</span>
             </div>
-            <h4 className="mb-4 text-lg font-semibold text-[#060b1f]">Checkout</h4>
-            <div className="mb-4 space-y-2">
-              <div className="rounded-xl border border-[#e2e8f0] bg-white p-2.5">
-                <p className="text-[10px] font-semibold text-[#060b1f]">Sprite 1ltr</p>
-                <p className="text-[9px] text-[#94a3b8]">Rs 120 × 2</p>
-              </div>
-              <div className="rounded-xl border border-[#e2e8f0] bg-white p-2.5">
-                <p className="text-[10px] font-semibold text-[#060b1f]">Bottle</p>
-                <p className="text-[9px] text-[#94a3b8]">Rs 1,000 × 1</p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-[#e2e8f0] bg-white p-3">
-              <div className="mb-1 flex justify-between text-[10px] text-[#64748b]"><span>Subtotal</span><span>Rs 1,240</span></div>
-              <div className="mb-1 flex justify-between text-[10px] text-[#64748b]"><span>Tax 5%</span><span>Rs 62</span></div>
-              <div className="mt-2 flex items-center justify-between border-t border-[#f1f5f9] pt-2">
-                <span className="text-xs font-semibold text-[#060b1f]">Total</span>
-                <span className="text-sm font-bold text-[#060b1f]">Rs 1,302</span>
+            <h4 className="mb-24 text-2xl font-semibold tracking-tight text-[#07132f] md:mb-36">Checkout</h4>
+            <div className="rounded-[22px] bg-[#f1f7fb] p-4">
+              <div className="mb-2 flex justify-between text-xs font-bold text-[#607080]"><span>Subtotal</span><span>Rs 1,240</span></div>
+              <div className="mb-3 flex justify-between text-xs font-bold text-[#607080]"><span>Discount</span><span>Rs 0</span></div>
+              <div className="flex items-center justify-between border-t border-[#dfebf3] pt-4">
+                <span className="text-sm font-semibold text-[#07132f]">Total</span>
+                <span className="text-3xl font-semibold text-[#07132f]">Rs 1,240</span>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="flex items-center justify-center gap-1 rounded-xl border border-[#e2e8f0] bg-white py-2 text-[10px] font-semibold text-[#64748b]">
-                <ReceiptText className="h-3 w-3" /> Receipt
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-center gap-2 rounded-[18px] border border-[#dfebf3] bg-white py-3 text-xs font-semibold text-[#607080]">
+                <ReceiptText className="h-4 w-4" /> Receipt
               </div>
-              <div className="flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6F35F5] to-[#15bdf2] py-2 text-[10px] font-bold text-white">
+              <div className="flex items-center justify-center rounded-[18px] bg-gradient-to-r from-[#84d8ff] to-[#a896ff] py-3 text-xs font-bold text-white shadow-[0_14px_32px_rgba(111,53,245,0.18)]">
                 Complete Sale
               </div>
             </div>
@@ -93,18 +132,18 @@ function BrowserMockup() {
 }
 
 const features = [
-  { icon: Camera, title: "Camera Vision", desc: "Point your phone camera at any product. VisionAI recognizes it automatically — no barcode needed." },
-  { icon: Barcode, title: "Barcode Scanning", desc: "Works with any USB scanner or your device camera. Native BarcodeDetector + ZXing fallback for every browser." },
-  { icon: Boxes, title: "Inventory Tracking", desc: "Real-time stock levels per store. Low-stock alerts, movement history, and reorder-level tracking built in." },
-  { icon: ReceiptText, title: "Receipts & Invoices", desc: "Print 80mm thermal receipts or A4 invoices. Connect any ESC/POS printer via USB — auto-print after each sale." },
-  { icon: Users, title: "Roles & Permissions", desc: "Owner, Admin, Manager, Cashier — each with scoped access. Cashiers see only checkout. Admins see everything." },
-  { icon: Smartphone, title: "Works on Any Device", desc: "Runs in Chrome, Edge, Firefox, Safari. No app to install. Cashiers use it on phones, tablets, or desktops." },
+  { icon: Camera, title: "Camera Vision", desc: "Recognize trained products from the checkout camera, with a live scan indicator for cashiers." },
+  { icon: Barcode, title: "Barcode Scanning", desc: "Use the browser camera or any USB scanner. No separate Windows software needed." },
+  { icon: Boxes, title: "Inventory Control", desc: "Track stock, low alerts, variants, and sales deductions across your store." },
+  { icon: ReceiptText, title: "Receipt Printing", desc: "Print receipt or A4 invoice after every sale. ESC/POS support is ready for thermal printers." },
+  { icon: Users, title: "Cashier Accounts", desc: "Create staff accounts, control roles, and keep owners away from checkout-only screens." },
+  { icon: Smartphone, title: "Phone, Tablet, Desktop", desc: "Runs in the browser on the devices small shops already own." },
 ];
 
 const steps = [
-  { num: "01", title: "Add your products", desc: "Scan each product barcode with your phone camera. Name, price, and SKU auto-fill. Record a short video for vision training." },
-  { num: "02", title: "Scan or tap to sell", desc: "At checkout, point the camera at any product or scan its barcode. VisionAI or barcode adds it to the cart instantly." },
-  { num: "03", title: "Print receipt & track", desc: "Cash, card, or wallet — pick payment, hit Complete. Receipt prints automatically. Revenue, stock, and reports update in real time." },
+  { num: "01", title: "Add products", desc: "Enter price, stock, barcode, variants, and a quick product video for vision matching." },
+  { num: "02", title: "Sell quickly", desc: "Search, tap, scan barcode, or point the camera at the item. The cart updates instantly." },
+  { num: "03", title: "Print and track", desc: "Complete payment, print the receipt, and update stock automatically." },
 ];
 
 const plans = [
@@ -112,8 +151,8 @@ const plans = [
     name: "Starter",
     price: "Free",
     period: "forever",
-    desc: "For single-shop owners who want to try VisionPOS before committing.",
-    features: ["1 store", "1 cashier account", "Camera barcode scanning", "Vision AI product matching", "Receipt + A4 invoices", "Inventory tracking", "Community support"],
+    desc: "For a shop owner who wants to test the system with real products.",
+    features: ["1 store", "1 cashier", "Barcode scanning", "Inventory tracking", "Receipt + A4 invoices"],
     cta: "Start free",
     highlight: false,
   },
@@ -121,139 +160,149 @@ const plans = [
     name: "Pro",
     price: "Rs 3,500",
     period: "/month",
-    desc: "For growing businesses that need multiple stores and advanced features.",
-    features: ["Unlimited stores", "Unlimited cashiers", "Everything in Starter", "USB thermal printer support", "Auto-print receipts", "Sales & inventory reports", "WhatsApp support", "Priority onboarding"],
-    cta: "Start 30-day trial",
+    desc: "For stores that want printer support, staff accounts, and guided setup.",
+    features: ["Unlimited cashiers", "Vision product matching", "USB printer support", "Auto-print receipts", "WhatsApp support"],
+    cta: "Start trial",
     highlight: true,
   },
 ];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-white">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-[#f1f5f9] bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#15bdf2] to-[#6F35F5] text-sm font-bold text-white">V</div>
-            <span className="text-lg font-semibold text-[#060b1f]">VisionPOS</span>
-          </div>
+    <main className="min-h-screen overflow-hidden bg-[#fbfdff] text-[#07132f]">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_10%_0%,rgba(21,189,242,0.14),transparent_28rem),radial-gradient(circle_at_90%_10%,rgba(111,53,245,0.13),transparent_30rem),linear-gradient(180deg,#ffffff_0%,#f7fbff_45%,#ffffff_100%)]" />
+
+      <nav className="sticky top-0 z-50 border-b border-[#edf4fa] bg-white/78 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+          <Link href="/" className="flex items-center">
+            <Logo className="scale-90 origin-left" />
+          </Link>
           <div className="hidden items-center gap-8 md:flex">
-            <a href="#features" className="text-sm font-medium text-[#64748b] hover:text-[#060b1f] transition">Features</a>
-            <a href="#how" className="text-sm font-medium text-[#64748b] hover:text-[#060b1f] transition">How it works</a>
-            <a href="#pricing" className="text-sm font-medium text-[#64748b] hover:text-[#060b1f] transition">Pricing</a>
+            <a href="#features" className="text-sm font-semibold text-[#607080] transition hover:text-[#6F35F5]">Features</a>
+            <a href="#how" className="text-sm font-semibold text-[#607080] transition hover:text-[#6F35F5]">Workflow</a>
+            <a href="#pricing" className="text-sm font-semibold text-[#607080] transition hover:text-[#6F35F5]">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-semibold text-[#64748b] hover:text-[#060b1f] transition">Login</Link>
-            <Link href="/register" className="rounded-xl bg-[#060b1f] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#111827] transition">Get started</Link>
+            <Link href="/login" className="hidden text-sm font-semibold text-[#607080] transition hover:text-[#6F35F5] sm:block">Login</Link>
+            <Link href="/register" className="rounded-2xl bg-gradient-to-r from-[#15bdf2] to-[#6F35F5] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(111,53,245,0.18)] transition hover:-translate-y-0.5">
+              Start setup
+            </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="overflow-hidden px-5 pt-16 pb-8 md:pt-24 md:pb-12">
-        <div className="mx-auto max-w-6xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-4 py-1.5 text-sm font-medium text-[#64748b]">
-            <BadgeCheck className="h-4 w-4 text-[#22c55e]" /> Trusted by retail shops across Pakistan
+      <section className="px-5 pb-14 pt-14 md:px-8 md:pb-20 md:pt-20">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.86fr_1.14fr]">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#dbeafe] bg-white px-4 py-2 text-sm font-semibold text-[#3564d4] shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+              <Sparkles className="h-4 w-4 text-[#6F35F5]" /> Built for real shop counters
+            </div>
+            <h1 className="mt-7 max-w-2xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-[#07132f] md:text-7xl">
+              Fast checkout without the old POS headache.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-[#607080]">
+              VisionPOS runs from the browser. Scan barcodes, recognize products with the camera, manage stock, and print receipts without installing a local engine.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/register" className={primaryButton}>
+                Start free <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/pos/checkout" className={softButton}>
+                Open demo checkout
+              </Link>
+            </div>
+            <div className="mt-8 grid max-w-lg grid-cols-3 gap-3">
+              {[
+                ["0", "installs"],
+                ["80mm", "printer ready"],
+                ["PKR", "local pricing"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-[20px] border border-[#edf4fa] bg-white/70 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+                  <p className="text-2xl font-semibold text-[#07132f]">{value}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#8a99aa]">{label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#060b1f] md:text-6xl lg:text-7xl">
-            Browser POS for shops<br className="hidden md:block" /> that want to <span className="bg-gradient-to-r from-[#15bdf2] to-[#6F35F5] bg-clip-text text-transparent">move fast</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#64748b] md:text-lg">
-            Scan barcodes, use camera vision, manage stock, print receipts, and run checkout from any device. No downloads, no setup, no fees for small shops.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#060b1f] px-7 py-3.5 text-sm font-semibold text-white hover:bg-[#111827] transition">
-              Start free <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/pos/checkout" className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-7 py-3.5 text-sm font-semibold text-[#060b1f] hover:bg-[#f8fafc] transition">
-              Try the demo
-            </Link>
-          </div>
-        </div>
-        <div className="mx-auto mt-12 max-w-5xl md:mt-16">
+
           <BrowserMockup />
         </div>
       </section>
 
-      {/* Logos / trust bar */}
-      <section className="border-y border-[#f1f5f9] bg-[#fafbfc] px-5 py-6">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 text-sm font-medium text-[#94a3b8]">
-          <span className="flex items-center gap-2"><Store className="h-4 w-4" /> Grocery stores</span>
-          <span className="flex items-center gap-2"><Banknote className="h-4 w-4" /> Clothing shops</span>
-          <span className="flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> General stores</span>
-          <span className="flex items-center gap-2"><Zap className="h-4 w-4" /> Bakeries & cafes</span>
+      <section className="border-y border-[#edf4fa] bg-white/76 px-5 py-6 md:px-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-6 text-sm font-semibold text-[#8a99aa] md:gap-10">
+          <span className="flex items-center gap-2"><Store className="h-4 w-4 text-[#15bdf2]" /> Grocery stores</span>
+          <span className="flex items-center gap-2"><Banknote className="h-4 w-4 text-[#6F35F5]" /> Clothing shops</span>
+          <span className="flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-[#15bdf2]" /> General stores</span>
+          <span className="flex items-center gap-2"><Zap className="h-4 w-4 text-[#6F35F5]" /> Bakeries & cafes</span>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="px-5 py-20 md:py-28">
-        <div className="mx-auto max-w-6xl">
-          <div className="mx-auto mb-14 max-w-lg text-center">
-            <span className="text-sm font-bold tracking-wide text-[#6F35F5]">Features</span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#060b1f] md:text-4xl">Everything your shop needs</h2>
-            <p className="mt-3 text-base text-[#64748b]">One subscription. No hidden fees. Works on the hardware you already have.</p>
+      <section id="features" className="px-5 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#6F35F5]">Features</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#07132f] md:text-5xl">The important parts are already connected.</h2>
+            <p className="mt-4 text-base leading-7 text-[#607080]">No fluffy modules. These are the things a shop owner asks for on day one.</p>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f) => (
-              <div key={f.title} className="group rounded-2xl border border-[#f1f5f9] bg-white p-6 transition hover:border-[#15bdf2] hover:shadow-[0_8px_30px_rgba(21,189,242,0.08)]">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f8fafc] text-[#6F35F5] transition group-hover:bg-[#6F35F5] group-hover:text-white">
-                  <f.icon className="h-5 w-5" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <div key={feature.title} className="group rounded-[28px] border border-[#edf4fa] bg-white p-6 shadow-[0_14px_38px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:border-[#cfe5ff] hover:shadow-[0_24px_60px_rgba(21,189,242,0.10)]">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e7f8ff] to-[#f2ecff] text-[#6F35F5]">
+                  <feature.icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-[#060b1f]">{f.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{f.desc}</p>
+                <h3 className="text-lg font-semibold text-[#07132f]">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#607080]">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="border-y border-[#f1f5f9] bg-[#fafbfc] px-5 py-20 md:py-28">
-        <div className="mx-auto max-w-6xl">
-          <div className="mx-auto mb-14 max-w-lg text-center">
-            <span className="text-sm font-bold tracking-wide text-[#15bdf2]">How it works</span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#060b1f] md:text-4xl">Three steps to start selling</h2>
+      <section id="how" className="bg-gradient-to-b from-[#f7fbff] to-white px-5 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto mb-14 max-w-xl text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#15bdf2]">Workflow</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#07132f] md:text-5xl">From shelf to receipt in three steps.</h2>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((s) => (
-              <div key={s.num} className="relative">
-                <span className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#060b1f] text-sm font-bold text-white">{s.num}</span>
-                <h3 className="text-xl font-semibold text-[#060b1f]">{s.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{s.desc}</p>
+          <div className="grid gap-5 md:grid-cols-3">
+            {steps.map((step) => (
+              <div key={step.num} className="rounded-[30px] border border-[#edf4fa] bg-white p-7 shadow-[0_18px_46px_rgba(15,23,42,0.05)]">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#15bdf2] to-[#6F35F5] text-sm font-bold text-white shadow-[0_14px_34px_rgba(111,53,245,0.18)]">{step.num}</span>
+                <h3 className="mt-6 text-xl font-semibold text-[#07132f]">{step.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#607080]">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="px-5 py-20 md:py-28">
-        <div className="mx-auto max-w-4xl">
-          <div className="mx-auto mb-14 max-w-lg text-center">
-            <span className="text-sm font-bold tracking-wide text-[#6F35F5]">Pricing</span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#060b1f] md:text-4xl">Simple, honest pricing</h2>
-            <p className="mt-3 text-base text-[#64748b]">Start free. Upgrade when your shop grows. No contracts, cancel anytime.</p>
+      <section id="pricing" className="px-5 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-5xl">
+          <div className="mx-auto mb-12 max-w-xl text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#6F35F5]">Pricing</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#07132f] md:text-5xl">Simple pricing for small shops.</h2>
+            <p className="mt-4 text-base text-[#607080]">Start with real products and real receipts before paying anything.</p>
           </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {plans.map((p) => (
-              <div key={p.name} className={`relative rounded-2xl border p-7 transition ${p.highlight ? "border-[#6F35F5] bg-gradient-to-b from-[#f5f3ff] to-white shadow-[0_8px_40px_rgba(111,53,245,0.08)]" : "border-[#e2e8f0] bg-white hover:shadow-lg"}`}>
-                {p.highlight && <span className="absolute -top-3 left-6 rounded-full bg-[#6F35F5] px-3 py-0.5 text-xs font-bold text-white">Most popular</span>}
-                <h3 className="text-xl font-bold text-[#060b1f]">{p.name}</h3>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-[#060b1f]">{p.price}</span>
-                  <span className="text-sm text-[#94a3b8]">{p.period}</span>
+          <div className="grid gap-5 md:grid-cols-2">
+            {plans.map((plan) => (
+              <div key={plan.name} className={`relative rounded-[32px] border p-8 shadow-[0_18px_48px_rgba(15,23,42,0.05)] ${plan.highlight ? "border-[#c8b7ff] bg-gradient-to-b from-[#f6f2ff] to-white" : "border-[#edf4fa] bg-white"}`}>
+                {plan.highlight && <span className="absolute -top-3 left-8 rounded-full bg-gradient-to-r from-[#15bdf2] to-[#6F35F5] px-4 py-1 text-xs font-bold text-white">Best for stores</span>}
+                <h3 className="text-2xl font-semibold text-[#07132f]">{plan.name}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#607080]">{plan.desc}</p>
+                <div className="mt-6 flex items-end gap-2">
+                  <span className="text-4xl font-semibold tracking-[-0.04em] text-[#07132f]">{plan.price}</span>
+                  <span className="pb-1 text-sm font-semibold text-[#8a99aa]">{plan.period}</span>
                 </div>
-                <p className="mt-3 text-sm text-[#64748b]">{p.desc}</p>
-                <ul className="mt-6 space-y-2.5">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-[#334155]">
-                      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[#22c55e]" /> {f}
+                <ul className="mt-7 space-y-3">
+                  {plan.features.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm font-medium text-[#405267]">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16a34a]" /> {item}
                     </li>
                   ))}
                 </ul>
-                <Link href="/register" className={`mt-7 block w-full rounded-xl py-3 text-center text-sm font-semibold transition ${p.highlight ? "bg-[#6F35F5] text-white hover:bg-[#5a28d4]" : "border border-[#e2e8f0] bg-white text-[#060b1f] hover:bg-[#f8fafc]"}`}>
-                  {p.cta}
+                <Link href="/register" className={`mt-8 flex w-full items-center justify-center rounded-2xl py-3.5 text-sm font-semibold transition ${plan.highlight ? "bg-gradient-to-r from-[#15bdf2] to-[#6F35F5] text-white shadow-[0_16px_36px_rgba(111,53,245,0.20)] hover:-translate-y-0.5" : "border border-[#dbeafe] bg-white text-[#3056d3] hover:bg-[#f8fbff]"}`}>
+                  {plan.cta}
                 </Link>
               </div>
             ))}
@@ -261,33 +310,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-5 py-20 md:py-28">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-gradient-to-r from-[#060b1f] to-[#1e293b] p-10 text-center md:p-16">
-          <h2 className="text-2xl font-bold text-white md:text-4xl">Ready to run your shop smarter?</h2>
-          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-white/60">Set up your first store in under 5 minutes. No credit card required. Works on the phone in your pocket.</p>
-          <Link href="/register" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-[#060b1f] hover:bg-[#f1f5f9] transition">
-            Create your free account <ArrowRight className="h-4 w-4" />
-          </Link>
+      <section className="px-5 pb-20 md:px-8 md:pb-28">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-[36px] border border-[#dbeafe] bg-[linear-gradient(135deg,#effbff_0%,#f6f2ff_55%,#ffffff_100%)] p-8 shadow-[0_24px_70px_rgba(111,53,245,0.10)] md:p-12">
+          <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#07132f] md:text-5xl">Try it on your own products.</h2>
+              <p className="mt-4 max-w-xl text-base leading-7 text-[#607080]">Create a store, add a few items, scan with your camera, and see if it fits your counter before selling it to customers.</p>
+            </div>
+            <Link href="/register" className={primaryButton}>
+              Create account <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-[#f1f5f9] bg-white px-5 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#15bdf2] to-[#6F35F5] text-xs font-bold text-white">V</div>
-            <span className="text-sm font-semibold text-[#060b1f]">VisionPOS</span>
+      <footer className="border-t border-[#edf4fa] bg-white px-5 py-10 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 md:flex-row">
+          <Logo className="scale-75 origin-left" />
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-semibold text-[#8a99aa]">
+            <Link href="/login" className="transition hover:text-[#6F35F5]">Login</Link>
+            <Link href="/register" className="transition hover:text-[#6F35F5]">Register</Link>
+            <a href="#features" className="transition hover:text-[#6F35F5]">Features</a>
+            <a href="#pricing" className="transition hover:text-[#6F35F5]">Pricing</a>
           </div>
-          <div className="flex flex-wrap items-center gap-6 text-sm text-[#94a3b8]">
-            <Link href="/login" className="hover:text-[#060b1f] transition">Login</Link>
-            <Link href="/register" className="hover:text-[#060b1f] transition">Register</Link>
-            <a href="#features" className="hover:text-[#060b1f] transition">Features</a>
-            <a href="#pricing" className="hover:text-[#060b1f] transition">Pricing</a>
-          </div>
-          <p className="text-xs text-[#94a3b8]">&copy; {new Date().getFullYear()} VisionPOS. All rights reserved.</p>
+          <p className="text-xs font-medium text-[#9aa8b5]">&copy; {new Date().getFullYear()} VisionPOS. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }

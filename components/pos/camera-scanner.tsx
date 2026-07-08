@@ -1,6 +1,6 @@
 "use client";
 
-import { Barcode, Loader2, ScanLine, Zap, X } from "lucide-react";
+import { Barcode, Loader2, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { detectBarcode } from "@/lib/browser-vision/barcode";
@@ -43,6 +43,7 @@ export function CameraScanner({
   const lastBarcodeRef = useRef<string | null>(null);
   const lastBarcodeTimeRef = useRef(0);
   const lastBarcodeScanAtRef = useRef(0);
+  const lastZxingScanAtRef = useRef(0);
   const lastVisionScanAtRef = useRef(0);
   const lastVisionProductRef = useRef<string | null>(null);
   const lastVisionProductTimeRef = useRef(0);
@@ -51,6 +52,10 @@ export function CameraScanner({
   const visionProfilesRef = useRef<ProfileData[]>([]);
   const visionConsecutiveProductRef = useRef<string | null>(null);
   const visionConsecutiveCountRef = useRef(0);
+  const visionRunningRef = useRef(false);
+  const ocrRunningRef = useRef(false);
+  const scanCountRef = useRef(0);
+  const lastScanCountUiAtRef = useRef(0);
   const matchedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const productByCode = useMemo(() => {
@@ -74,17 +79,22 @@ export function CameraScanner({
 
   tryMatchRef.current = async () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2) return;
+    if (!video || video.readyState < 2) return;
 
     const now = Date.now();
-    setScanCount((c) => c + 1);
+    scanCountRef.current++;
+    if (now - lastScanCountUiAtRef.current > 500) {
+      lastScanCountUiAtRef.current = now;
+      setScanCount(scanCountRef.current);
+    }
 
-    // --- Barcode scan (every 80ms) ---
-    if (now - lastBarcodeScanAtRef.current > 80) {
+    // Native barcode scans fast; ZXing fallback is throttled because it is heavier.
+    if (now - lastBarcodeScanAtRef.current > 70) {
       lastBarcodeScanAtRef.current = now;
+      const useZxingFallback = now - lastZxingScanAtRef.current > 220;
+      if (useZxingFallback) lastZxingScanAtRef.current = now;
       try {
-        const barcode = await detectBarcode(video);
+        const barcode = await detectBarcode(video, { fallback: useZxingFallback, maxSize: 420 });
         if (barcode) {
           if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
             const product = productByCode.get(barcode);
@@ -102,72 +112,89 @@ export function CameraScanner({
       } catch {}
     }
 
-    // --- Vision scan (every 350ms) ---
-    if (now - lastVisionScanAtRef.current < 350) return;
-    lastVisionScanAtRef.current = now;
-
-    if (visionProfilesRef.current.length > 0) {
+    // Vision runs in the background so product recognition does not block barcode scans.
+    if (visionProfilesRef.current.length > 0 && !visionRunningRef.current && now - lastVisionScanAtRef.current >= 300) {
+      lastVisionScanAtRef.current = now;
+      visionRunningRef.current = true;
       setScanPhase("scanning");
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
-      const scale = Math.min(240 / sourceW, 240 / sourceH, 1);
-      canvas.width = Math.max(1, Math.round(sourceW * scale));
-      canvas.height = Math.max(1, Math.round(sourceH * scale));
-      const ctx = canvas.getContext("2d");
+      const scale = Math.min(224 / sourceW, 224 / sourceH, 1);
+      const visionCanvas = document.createElement("canvas");
+      visionCanvas.width = Math.max(1, Math.round(sourceW * scale));
+      visionCanvas.height = Math.max(1, Math.round(sourceH * scale));
+      const ctx = visionCanvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const result = await matchCanvasAll(canvas, visionProfilesRef.current);
-        if (result?.accepted) {
-          if (result.productId === visionConsecutiveProductRef.current) {
-            visionConsecutiveCountRef.current++;
-          } else {
-            visionConsecutiveProductRef.current = result.productId;
-            visionConsecutiveCountRef.current = 1;
-          }
-          if (visionConsecutiveCountRef.current >= 2) {
-            const product = productById.get(result.productId);
-            const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 6000;
-            if (product && canAdd) {
-              lastVisionProductRef.current = result.productId;
-              lastVisionProductTimeRef.current = now;
+        ctx.drawImage(video, 0, 0, visionCanvas.width, visionCanvas.height);
+        void (async () => {
+          try {
+            const result = await matchCanvasAll(visionCanvas, visionProfilesRef.current);
+            const matchTime = Date.now();
+            if (result?.accepted) {
+              if (result.productId === visionConsecutiveProductRef.current) {
+                visionConsecutiveCountRef.current++;
+              } else {
+                visionConsecutiveProductRef.current = result.productId;
+                visionConsecutiveCountRef.current = 1;
+              }
+              if (visionConsecutiveCountRef.current >= 2) {
+                const product = productById.get(result.productId);
+                const canAdd = result.productId !== lastVisionProductRef.current || matchTime - lastVisionProductTimeRef.current > 6000;
+                if (product && canAdd) {
+                  lastVisionProductRef.current = result.productId;
+                  lastVisionProductTimeRef.current = matchTime;
+                  visionConsecutiveCountRef.current = 0;
+                  flashMatch(product.name);
+                  onProductMatched(product);
+                }
+              } else {
+                setScanPhase("detected");
+              }
+            } else {
+              visionConsecutiveProductRef.current = null;
               visionConsecutiveCountRef.current = 0;
-              flashMatch(product.name);
-              onProductMatched(product);
             }
-          } else {
-            setScanPhase("detected");
+          } finally {
+            visionRunningRef.current = false;
           }
-        } else {
-          visionConsecutiveProductRef.current = null;
-          visionConsecutiveCountRef.current = 0;
-        }
+        })();
+      } else {
+        visionRunningRef.current = false;
       }
     }
 
-    // --- OCR fallback (every 4s) ---
-    if (now - lastOcrTimeRef.current > 4000 && products.length > 0) {
+    // OCR is a slow fallback, so it always runs in the background.
+    if (!ocrRunningRef.current && now - lastOcrTimeRef.current > 4500 && products.length > 0) {
       lastOcrTimeRef.current = now;
+      ocrRunningRef.current = true;
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
-      canvas.width = Math.max(1, Math.round(sourceW * 0.4));
-      canvas.height = Math.max(1, Math.round(sourceH * 0.4));
-      const ctx = canvas.getContext("2d");
+      const ocrCanvas = document.createElement("canvas");
+      ocrCanvas.width = Math.max(1, Math.round(sourceW * 0.35));
+      ocrCanvas.height = Math.max(1, Math.round(sourceH * 0.35));
+      const ctx = ocrCanvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        try {
-          const { recognizeText, fuzzyMatchProduct } = await import("@/lib/browser-vision/ocr");
-          const text = await recognizeText(canvas, 3000);
-          if (text) {
-            const match = fuzzyMatchProduct(text, products);
-            if (match) {
-              const product = productById.get(match.productId);
-              if (product) {
-                flashMatch(product.name);
-                onProductMatched(product);
+        ctx.drawImage(video, 0, 0, ocrCanvas.width, ocrCanvas.height);
+        void (async () => {
+          try {
+            const { recognizeText, fuzzyMatchProduct } = await import("@/lib/browser-vision/ocr");
+            const text = await recognizeText(ocrCanvas, 2500);
+            if (text) {
+              const match = fuzzyMatchProduct(text, products);
+              if (match) {
+                const product = productById.get(match.productId);
+                if (product) {
+                  flashMatch(product.name);
+                  onProductMatched(product);
+                }
               }
             }
+          } finally {
+            ocrRunningRef.current = false;
           }
-        } catch {}
+        })();
+      } else {
+        ocrRunningRef.current = false;
       }
     }
   };

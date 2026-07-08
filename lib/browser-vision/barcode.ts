@@ -2,6 +2,7 @@ import type { BrowserMultiFormatReader } from "@zxing/browser";
 
 let nativeDetector: BarcodeDetector | null | undefined = undefined;
 let zxingReader: BrowserMultiFormatReader | null | undefined = undefined;
+let zxingCanvas: HTMLCanvasElement | null = null;
 
 function getNativeDetector(): BarcodeDetector | null {
   if (nativeDetector !== undefined) return nativeDetector;
@@ -40,7 +41,12 @@ export function hasNativeBarcodeDetector(): boolean {
   return getNativeDetector() !== null;
 }
 
-export async function detectBarcode(video: HTMLVideoElement): Promise<string | null> {
+export async function detectBarcode(
+  video: HTMLVideoElement,
+  options: { fallback?: boolean; maxSize?: number } = {},
+): Promise<string | null> {
+  const fallback = options.fallback ?? true;
+  const maxSize = options.maxSize ?? 420;
   const native = getNativeDetector();
   if (native) {
     try {
@@ -50,18 +56,20 @@ export async function detectBarcode(video: HTMLVideoElement): Promise<string | n
       // native failed, fall through
     }
   }
-  return detectWithZxing(video);
+  return fallback ? detectWithZxing(video, maxSize) : null;
 }
 
-async function detectWithZxing(video: HTMLVideoElement): Promise<string | null> {
+async function detectWithZxing(video: HTMLVideoElement, maxSize: number): Promise<string | null> {
   const reader = await getZxingReader();
   if (!reader) return null;
   try {
-    const canvas = document.createElement("canvas");
+    zxingCanvas ||= document.createElement("canvas");
+    const canvas = zxingCanvas;
     const w = video.videoWidth || 640;
     const h = video.videoHeight || 480;
-    canvas.width = Math.min(w, 640);
-    canvas.height = Math.min(h, 480);
+    const scale = Math.min(maxSize / w, maxSize / h, 1);
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
     canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
     const result = reader.decodeFromCanvas(canvas);
     return result.getText();
