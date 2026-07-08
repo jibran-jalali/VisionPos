@@ -1,6 +1,6 @@
 "use client";
 
-import { Barcode, Loader2, ScanLine } from "lucide-react";
+import { Barcode, Loader2, ScanLine, Zap, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { detectBarcode } from "@/lib/browser-vision/barcode";
@@ -23,6 +23,8 @@ async function loadProfiles(): Promise<ProfileData[]> {
   return cachedProfiles!;
 }
 
+type ScanPhase = "idle" | "scanning" | "detected" | "matched" | "error";
+
 export function CameraScanner({
   products,
   onProductMatched,
@@ -33,9 +35,11 @@ export function CameraScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [status, setStatus] = useState("Initialising camera...");
   const [cameraState, setCameraState] = useState<"loading" | "ready" | "denied" | "error">("loading");
+  const [scanPhase, setScanPhase] = useState<ScanPhase>("idle");
+  const [lastMatch, setLastMatch] = useState<{ name: string; time: number } | null>(null);
   const [lastBarcodeDisplay, setLastBarcodeDisplay] = useState<string | null>(null);
+  const [scanCount, setScanCount] = useState(0);
   const lastBarcodeRef = useRef<string | null>(null);
   const lastBarcodeTimeRef = useRef(0);
   const lastBarcodeScanAtRef = useRef(0);
@@ -47,6 +51,8 @@ export function CameraScanner({
   const visionProfilesRef = useRef<ProfileData[]>([]);
   const visionConsecutiveProductRef = useRef<string | null>(null);
   const visionConsecutiveCountRef = useRef(0);
+  const matchedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const productByCode = useMemo(() => {
     const map = new Map<string, CheckoutProduct>();
     for (const product of products) {
@@ -57,6 +63,13 @@ export function CameraScanner({
   }, [products]);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
 
+  function flashMatch(name: string) {
+    setLastMatch({ name, time: Date.now() });
+    setScanPhase("matched");
+    if (matchedTimeoutRef.current) clearTimeout(matchedTimeoutRef.current);
+    matchedTimeoutRef.current = setTimeout(() => setScanPhase("scanning"), 1500);
+  }
+
   const tryMatchRef = useRef(async () => {});
 
   tryMatchRef.current = async () => {
@@ -65,80 +78,97 @@ export function CameraScanner({
     if (!video || !canvas || video.readyState < 2) return;
 
     const now = Date.now();
+    setScanCount((c) => c + 1);
 
-    if (now - lastBarcodeScanAtRef.current > 120) {
+    // --- Barcode scan (every 80ms) ---
+    if (now - lastBarcodeScanAtRef.current > 80) {
       lastBarcodeScanAtRef.current = now;
-      const barcode = await detectBarcode(video);
-      if (barcode) {
-        if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
-          const product = productByCode.get(barcode);
-          if (product) {
-            lastBarcodeRef.current = barcode;
-            lastBarcodeTimeRef.current = now;
-            setLastBarcodeDisplay(barcode);
-            onProductMatched(product);
-            return;
+      try {
+        const barcode = await detectBarcode(video);
+        if (barcode) {
+          if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
+            const product = productByCode.get(barcode);
+            if (product) {
+              lastBarcodeRef.current = barcode;
+              lastBarcodeTimeRef.current = now;
+              setLastBarcodeDisplay(barcode);
+              flashMatch(product.name);
+              onProductMatched(product);
+              return;
+            }
           }
+          return;
         }
-        return;
-      }
+      } catch {}
     }
 
-    if (now - lastVisionScanAtRef.current < 1200) return;
+    // --- Vision scan (every 350ms) ---
+    if (now - lastVisionScanAtRef.current < 350) return;
     lastVisionScanAtRef.current = now;
 
     if (visionProfilesRef.current.length > 0) {
+      setScanPhase("scanning");
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
-      const scale = Math.min(320 / sourceW, 320 / sourceH, 1);
+      const scale = Math.min(240 / sourceW, 240 / sourceH, 1);
       canvas.width = Math.max(1, Math.round(sourceW * scale));
       canvas.height = Math.max(1, Math.round(sourceH * scale));
-      canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const result = await matchCanvasAll(canvas, visionProfilesRef.current);
-      if (result?.accepted) {
-        if (result.productId === visionConsecutiveProductRef.current) {
-          visionConsecutiveCountRef.current++;
-        } else {
-          visionConsecutiveProductRef.current = result.productId;
-          visionConsecutiveCountRef.current = 1;
-        }
-        if (visionConsecutiveCountRef.current >= 2) {
-          const product = productById.get(result.productId);
-          const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 8000;
-          if (product && canAdd) {
-            lastVisionProductRef.current = result.productId;
-            lastVisionProductTimeRef.current = now;
-            visionConsecutiveCountRef.current = 0;
-            onProductMatched(product);
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const result = await matchCanvasAll(canvas, visionProfilesRef.current);
+        if (result?.accepted) {
+          if (result.productId === visionConsecutiveProductRef.current) {
+            visionConsecutiveCountRef.current++;
+          } else {
+            visionConsecutiveProductRef.current = result.productId;
+            visionConsecutiveCountRef.current = 1;
           }
+          if (visionConsecutiveCountRef.current >= 2) {
+            const product = productById.get(result.productId);
+            const canAdd = result.productId !== lastVisionProductRef.current || now - lastVisionProductTimeRef.current > 6000;
+            if (product && canAdd) {
+              lastVisionProductRef.current = result.productId;
+              lastVisionProductTimeRef.current = now;
+              visionConsecutiveCountRef.current = 0;
+              flashMatch(product.name);
+              onProductMatched(product);
+            }
+          } else {
+            setScanPhase("detected");
+          }
+        } else {
+          visionConsecutiveProductRef.current = null;
+          visionConsecutiveCountRef.current = 0;
         }
-      } else {
-        visionConsecutiveProductRef.current = null;
-        visionConsecutiveCountRef.current = 0;
       }
     }
 
-    if (now - lastOcrTimeRef.current > 5000 && products.length > 0) {
+    // --- OCR fallback (every 4s) ---
+    if (now - lastOcrTimeRef.current > 4000 && products.length > 0) {
       lastOcrTimeRef.current = now;
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
-      canvas.width = Math.max(1, Math.round(sourceW * 0.5));
-      canvas.height = Math.max(1, Math.round(sourceH * 0.5));
-      canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      try {
-        const { recognizeText, fuzzyMatchProduct } = await import("@/lib/browser-vision/ocr");
-        const text = await recognizeText(canvas, 4000);
-        if (text) {
-          const match = fuzzyMatchProduct(text, products);
-          if (match) {
-            const product = productById.get(match.productId);
-            if (product) {
-              setStatus(`OCR matched: ${product.name}`);
-              onProductMatched(product);
+      canvas.width = Math.max(1, Math.round(sourceW * 0.4));
+      canvas.height = Math.max(1, Math.round(sourceH * 0.4));
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        try {
+          const { recognizeText, fuzzyMatchProduct } = await import("@/lib/browser-vision/ocr");
+          const text = await recognizeText(canvas, 3000);
+          if (text) {
+            const match = fuzzyMatchProduct(text, products);
+            if (match) {
+              const product = productById.get(match.productId);
+              if (product) {
+                flashMatch(product.name);
+                onProductMatched(product);
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
     }
   };
 
@@ -157,12 +187,9 @@ export function CameraScanner({
           await videoRef.current.play();
         }
         setCameraState("ready");
-        setStatus("Camera ready. Scanning for barcodes...");
+        setScanPhase("scanning");
 
         visionProfilesRef.current = await loadProfiles();
-        if (visionProfilesRef.current.length > 0) {
-          setStatus(`Camera ready. Barcode + vision scanning (${visionProfilesRef.current.length} profiles).`);
-        }
 
         scanningRef.current = true;
         const scan = async () => {
@@ -176,10 +203,8 @@ export function CameraScanner({
         const msg = String(err);
         if (msg.includes("NotAllowed") || msg.includes("Permission")) {
           setCameraState("denied");
-          setStatus("Camera permission denied. Allow camera in browser settings.");
         } else {
           setCameraState("error");
-          setStatus("Could not access camera. Use the product grid to add items.");
         }
       }
     }
@@ -192,12 +217,17 @@ export function CameraScanner({
       scanningRef.current = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      if (matchedTimeoutRef.current) clearTimeout(matchedTimeoutRef.current);
     };
   }, []);
+
+  const phaseColor = scanPhase === "matched" ? "bg-emerald-500" : scanPhase === "detected" ? "bg-amber-400" : scanPhase === "scanning" ? "bg-[#15bdf2]" : "bg-[#94a3b8]";
+  const phaseLabel = scanPhase === "matched" ? "Matched!" : scanPhase === "detected" ? "Detecting..." : scanPhase === "scanning" ? "Scanning" : "Idle";
 
   return (
     <Card className="mb-5 overflow-hidden p-0">
       <div className="flex items-center gap-5 p-4">
+        {/* Camera preview */}
         <div className="relative aspect-video w-2/5 overflow-hidden rounded-[20px] bg-[#060b1f]">
           {cameraState === "loading" && (
             <div className="flex h-full items-center justify-center">
@@ -206,40 +236,83 @@ export function CameraScanner({
           )}
           <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
           <canvas ref={canvasRef} className="hidden" />
+
+          {/* Crosshair overlay */}
           {cameraState === "ready" && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="relative h-20 w-20">
-                <div className="absolute inset-1 rounded-full border border-white/40" />
-                <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
-                <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
-                <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
+            <div className="pointer-events-none absolute inset-0 z-10">
+              {/* Animated scan line */}
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-[#15bdf2] to-transparent" style={{ animation: "scanLine 2s ease-in-out infinite" }} />
+
+              {/* Center crosshair */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className={`relative h-20 w-20 rounded-full border-2 transition-colors duration-300 ${scanPhase === "matched" ? "border-emerald-400" : scanPhase === "detected" ? "border-amber-400" : "border-white/30"}`}>
+                  <div className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-white/50" />
+                  <div className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-white/50" />
+                  <div className={`absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors duration-300 ${scanPhase === "matched" ? "bg-emerald-400" : scanPhase === "detected" ? "bg-amber-400" : "bg-white/60"}`} />
+                </div>
+              </div>
+
+              {/* Distance hint */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-0.5 text-[9px] font-medium text-white/80">
+                Hold 15-30cm from product
               </div>
             </div>
           )}
+
+          {/* Barcode display */}
           {lastBarcodeDisplay && (
-            <div className="absolute bottom-2 left-2 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white">
+            <div className="absolute bottom-2 left-2 z-20 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white">
               <Barcode className="mr-1 inline h-3 w-3" />{lastBarcodeDisplay}
             </div>
           )}
-        </div>
-        <div className="flex flex-1 items-center gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-bold text-[#607080]">Camera Checkout</p>
-            <h2 className="mt-1 text-xl font-semibold text-[#060b1f]">Point product at camera</h2>
-            <p className="mt-1 flex items-center gap-1.5 text-sm leading-5 text-[#607080]">
-              {cameraState === "loading" && <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Starting camera...</>}
-              {cameraState === "denied" && "Camera blocked — tap products below instead"}
-              {cameraState === "error" && "Camera error — tap products below instead"}
-              {cameraState === "ready" && <><ScanLine className="h-3.5 w-3.5 text-emerald-500" /> {status}</>}
-            </p>
-          </div>
-          {cameraState !== "ready" && (
-            <div className="hidden rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 md:block">
-              {cameraState === "denied" ? "Blocked" : "Unavailable"}
+
+          {/* Match flash overlay */}
+          {scanPhase === "matched" && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-emerald-500/20 backdrop-blur-[1px]">
+              <div className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+                <Zap className="mr-1 inline h-4 w-4" /> {lastMatch?.name}
+              </div>
             </div>
           )}
         </div>
+
+        {/* Status panel */}
+        <div className="flex flex-1 flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${phaseColor} ${scanPhase === "scanning" ? "animate-pulse" : ""}`} />
+              <span className="text-sm font-bold text-[#060b1f]">{phaseLabel}</span>
+            </div>
+            {scanPhase === "scanning" && (
+              <span className="rounded-full bg-[#f1f5f9] px-2 py-0.5 text-[10px] font-medium text-[#64748b]">
+                {scanCount} frames scanned
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-[#64748b]">
+            {cameraState === "loading" && "Starting camera..."}
+            {cameraState === "denied" && "Camera blocked — tap products below"}
+            {cameraState === "error" && "Camera error — tap products below"}
+            {cameraState === "ready" && scanPhase === "matched" && lastMatch && (
+              <>Matched <span className="font-semibold text-[#060b1f]">{lastMatch.name}</span> — added to cart</>
+            )}
+            {cameraState === "ready" && scanPhase === "detected" && "Product detected — confirming..."}
+            {cameraState === "ready" && scanPhase === "scanning" && "Point product at camera or scan barcode"}
+          </p>
+
+          {lastMatch && scanPhase !== "matched" && (
+            <p className="text-[10px] text-[#94a3b8]">Last: {lastMatch.name} ({Math.round((Date.now() - lastMatch.time) / 1000)}s ago)</p>
+          )}
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes scanLine {
+          0%, 100% { top: 10%; }
+          50% { top: 90%; }
+        }
+      `}</style>
     </Card>
   );
 }
