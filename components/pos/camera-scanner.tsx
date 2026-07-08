@@ -94,12 +94,12 @@ export function CameraScanner({
       lastBarcodeScanAtRef.current = now;
       const useZxingFallback = now - lastZxingScanAtRef.current > 220;
       if (useZxingFallback) lastZxingScanAtRef.current = now;
-      const useRobustFallback = now - lastRobustBarcodeScanAtRef.current > 800;
+      const useRobustFallback = now - lastRobustBarcodeScanAtRef.current > 1400;
       if (useRobustFallback) lastRobustBarcodeScanAtRef.current = now;
       try {
         const barcode = await detectBarcode(video, {
           fallback: useZxingFallback || useRobustFallback,
-          maxSize: useRobustFallback ? 1280 : 640,
+          maxSize: useRobustFallback ? 1120 : 640,
           tryHarder: useRobustFallback,
         });
         if (barcode) {

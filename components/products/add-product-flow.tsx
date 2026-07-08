@@ -62,6 +62,8 @@ export function AddProductFlow() {
   const skuRef = useRef("");
   const barcodeScanRunningRef = useRef(false);
   const lastBarcodeScanAtRef = useRef(0);
+  const lastRobustBarcodeScanAtRef = useRef(0);
+  const barcodeScanPausedRef = useRef(false);
   const barcodeScanAttemptsRef = useRef(0);
   const scannerBufferRef = useRef("");
   const scannerFirstKeyAtRef = useRef(0);
@@ -70,6 +72,7 @@ export function AddProductFlow() {
   useEffect(() => { barcodeRef.current = barcode; }, [barcode]);
   useEffect(() => { skuRef.current = sku; }, [sku]);
   useEffect(() => { capturedFramesRef.current = capturedFrames; }, [capturedFrames]);
+  useEffect(() => { barcodeScanPausedRef.current = isSaving || isRecording || isExtracting; }, [isSaving, isRecording, isExtracting]);
 
   function applyBarcodeValue(rawValue: string, source: "camera" | "scanner" | "manual") {
     const value = rawValue.trim();
@@ -95,8 +98,8 @@ export function AddProductFlow() {
     }
   }
 
-  async function scanBarcodeFrame(video: HTMLVideoElement) {
-    return detectBarcode(video, { fallback: true, maxSize: 1280, tryHarder: true });
+  async function scanBarcodeFrame(video: HTMLVideoElement, tryHarder: boolean) {
+    return detectBarcode(video, { fallback: true, maxSize: tryHarder ? 1120 : 640, tryHarder });
   }
 
   useEffect(() => {
@@ -143,11 +146,17 @@ export function AddProductFlow() {
       if (stopped) return;
       const now = Date.now();
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 220) {
+      if (barcodeScanPausedRef.current || barcodeRef.current.trim()) {
+        window.setTimeout(scanBarcode, 250);
+        return;
+      }
+      if (video && video.readyState >= 2 && !barcodeScanRunningRef.current && now - lastBarcodeScanAtRef.current > 170) {
         barcodeScanRunningRef.current = true;
         lastBarcodeScanAtRef.current = now;
+        const tryHarder = now - lastRobustBarcodeScanAtRef.current > 1300;
+        if (tryHarder) lastRobustBarcodeScanAtRef.current = now;
         try {
-          const value = await scanBarcodeFrame(video);
+          const value = await scanBarcodeFrame(video, tryHarder);
           if (value) {
             barcodeScanAttemptsRef.current = 0;
             applyBarcodeValue(value, "camera");

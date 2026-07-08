@@ -1,7 +1,8 @@
 import type { BrowserMultiFormatReader } from "@zxing/browser";
 
 let nativeDetector: BarcodeDetector | null | undefined = undefined;
-let zxingReader: BrowserMultiFormatReader | null | undefined = undefined;
+let zxingFastReader: BrowserMultiFormatReader | null | undefined = undefined;
+let zxingTryHarderReader: BrowserMultiFormatReader | null | undefined = undefined;
 let zxingCanvas: HTMLCanvasElement | null = null;
 let processedCanvas: HTMLCanvasElement | null = null;
 
@@ -42,16 +43,21 @@ function getNativeDetector(): BarcodeDetector | null {
   return nativeDetector;
 }
 
-async function getZxingReader(): Promise<BrowserMultiFormatReader | null> {
-  if (zxingReader !== undefined) return zxingReader;
-  if (typeof window === "undefined") { zxingReader = null; return null; }
+async function getZxingReader(tryHarder = false): Promise<BrowserMultiFormatReader | null> {
+  const cachedReader = tryHarder ? zxingTryHarderReader : zxingFastReader;
+  if (cachedReader !== undefined) return cachedReader;
+  if (typeof window === "undefined") {
+    if (tryHarder) zxingTryHarderReader = null;
+    else zxingFastReader = null;
+    return null;
+  }
   try {
     const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
       import("@zxing/browser"),
       import("@zxing/library"),
     ]);
     const hints = new Map();
-    hints.set(DecodeHintType.TRY_HARDER, true);
+    if (tryHarder) hints.set(DecodeHintType.TRY_HARDER, true);
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [
       BarcodeFormat.EAN_13,
       BarcodeFormat.EAN_8,
@@ -64,10 +70,13 @@ async function getZxingReader(): Promise<BrowserMultiFormatReader | null> {
       BarcodeFormat.ITF,
       BarcodeFormat.QR_CODE,
     ]);
-    zxingReader = new BrowserMultiFormatReader(hints);
-    return zxingReader;
+    const reader = new BrowserMultiFormatReader(hints);
+    if (tryHarder) zxingTryHarderReader = reader;
+    else zxingFastReader = reader;
+    return reader;
   } catch {
-    zxingReader = null;
+    if (tryHarder) zxingTryHarderReader = null;
+    else zxingFastReader = null;
     return null;
   }
 }
@@ -112,8 +121,13 @@ async function detectVideoTryHarder(video: HTMLVideoElement, maxSize: number): P
     const canvas = drawVideoCrop(video, crop, maxSize, true);
     const decoded = await decodeCanvasVariants(canvas);
     if (decoded) return decoded;
+    await yieldToBrowser();
   }
   return null;
+}
+
+async function yieldToBrowser() {
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 function drawVideoCrop(video: HTMLVideoElement, crop: CropAttempt, maxSize: number, allowUpscale: boolean): HTMLCanvasElement {
@@ -137,14 +151,7 @@ function drawVideoCrop(video: HTMLVideoElement, crop: CropAttempt, maxSize: numb
 }
 
 async function decodeCanvasVariants(canvas: HTMLCanvasElement): Promise<string | null> {
-  const original = await detectBarcodeFromCanvas(canvas);
-  if (original) return original;
-
-  const contrast = prepareCanvasForBarcode(canvas, "contrast");
-  const contrastResult = await detectBarcodeFromCanvas(contrast);
-  if (contrastResult) return contrastResult;
-
-  return detectBarcodeFromCanvas(prepareCanvasForBarcode(canvas, "binary"));
+  return detectBarcodeFromCanvas(canvas, { tryHarder: true });
 }
 
 function prepareCanvasForBarcode(canvas: HTMLCanvasElement, mode: "contrast" | "binary"): HTMLCanvasElement {
@@ -207,8 +214,8 @@ function getOtsuThreshold(data: Uint8ClampedArray): number {
   return threshold;
 }
 
-async function decodeWithZxing(canvas: HTMLCanvasElement): Promise<string | null> {
-  const reader = await getZxingReader();
+async function decodeWithZxing(canvas: HTMLCanvasElement, tryHarder = false): Promise<string | null> {
+  const reader = await getZxingReader(tryHarder);
   if (!reader) return null;
   try {
     const result = reader.decodeFromCanvas(canvas);
@@ -226,11 +233,11 @@ export async function detectBarcodeFromCanvas(canvas: HTMLCanvasElement, options
       if (barcodes.length > 0) return barcodes[0].rawValue;
     } catch {}
   }
-  const decoded = await decodeWithZxing(canvas);
+  const decoded = await decodeWithZxing(canvas, options.tryHarder);
   if (decoded || !options.tryHarder) return decoded;
 
-  const contrast = await decodeWithZxing(prepareCanvasForBarcode(canvas, "contrast"));
+  const contrast = await decodeWithZxing(prepareCanvasForBarcode(canvas, "contrast"), true);
   if (contrast) return contrast;
 
-  return decodeWithZxing(prepareCanvasForBarcode(canvas, "binary"));
+  return decodeWithZxing(prepareCanvasForBarcode(canvas, "binary"), true);
 }
