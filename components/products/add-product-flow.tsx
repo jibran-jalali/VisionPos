@@ -5,6 +5,7 @@ import { Loader2, Plus, Save, ScanLine, Square, Trash2, Videotape } from "lucide
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { RunActionButton } from "@/components/ui/run-action-button";
 import { detectBarcodeFromCanvas } from "@/lib/browser-vision/barcode";
 import { computeHistogram } from "@/lib/browser-vision/histogram";
 
@@ -13,6 +14,15 @@ type CapturedFrame = { blob: Blob; url: string };
 const TRAINING_IMAGE_SIZE = 320;
 const FRAME_INTERVAL_SECONDS = 0.5;
 const MAX_TRAINING_FRAMES = 16;
+
+const recordSteps = [
+  { id: 1, label: "Record front", icon: Videotape },
+  { id: 2, label: "Turn slowly", icon: ScanLine },
+  { id: 3, label: "Show sides", icon: Square },
+  { id: 4, label: "Show top", icon: Plus },
+  { id: 5, label: "Final angle", icon: Save },
+  { id: 6, label: "Extract frames", icon: Loader2 },
+];
 
 async function computeFrameEmbedding(blob: Blob): Promise<number[]> {
   const bitmap = await createImageBitmap(blob);
@@ -560,16 +570,19 @@ export function AddProductFlow() {
               <p className="text-xs font-bold text-[#060b1f]">Video vision training</p>
               <p className="mt-0.5 text-xs text-[#607080]">Record 5-8s rotating the product. Frames extracted automatically.</p>
             </div>
-            {!isRecording ? (
-              <Button type="button" variant="primary" size="sm" onClick={startRecording} disabled={cameraState !== "ready" || isExtracting || isSaving}>
-                {isExtracting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Videotape className="mr-1.5 h-3.5 w-3.5" />}
-                {isExtracting ? "Extracting..." : "Start video"}
-              </Button>
-            ) : (
-              <Button type="button" variant="danger" size="sm" onClick={stopRecording}>
-                <Square className="mr-1.5 h-3.5 w-3.5" /> Stop
-              </Button>
-            )}
+            <RunActionButton
+              steps={recordSteps}
+              idleLabel={isExtracting ? "Extracting..." : "Record video"}
+              doneLabel="Video ready"
+              intervalMs={950}
+              idleWidth={150}
+              runningWidth={320}
+              doneWidth={170}
+              disabled={cameraState !== "ready" || isExtracting || isSaving}
+              onStart={startRecording}
+              onCancel={stopRecording}
+              onComplete={stopRecording}
+            />
           </div>
           {isExtracting && (
             <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#eef2ff] px-3 py-2 text-xs font-semibold text-[#4f46e5]">
