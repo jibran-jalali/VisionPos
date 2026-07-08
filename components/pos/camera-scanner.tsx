@@ -44,6 +44,7 @@ export function CameraScanner({
   const lastBarcodeTimeRef = useRef(0);
   const lastBarcodeScanAtRef = useRef(0);
   const lastZxingScanAtRef = useRef(0);
+  const lastRobustBarcodeScanAtRef = useRef(0);
   const lastVisionScanAtRef = useRef(0);
   const lastVisionProductRef = useRef<string | null>(null);
   const lastVisionProductTimeRef = useRef(0);
@@ -93,8 +94,14 @@ export function CameraScanner({
       lastBarcodeScanAtRef.current = now;
       const useZxingFallback = now - lastZxingScanAtRef.current > 220;
       if (useZxingFallback) lastZxingScanAtRef.current = now;
+      const useRobustFallback = now - lastRobustBarcodeScanAtRef.current > 800;
+      if (useRobustFallback) lastRobustBarcodeScanAtRef.current = now;
       try {
-        const barcode = await detectBarcode(video, { fallback: useZxingFallback, maxSize: 420 });
+        const barcode = await detectBarcode(video, {
+          fallback: useZxingFallback || useRobustFallback,
+          maxSize: useRobustFallback ? 1280 : 640,
+          tryHarder: useRobustFallback,
+        });
         if (barcode) {
           if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
             const product = productByCode.get(barcode);
@@ -204,7 +211,7 @@ export function CameraScanner({
     async function init() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           audio: false,
         });
         if (!running) { stream.getTracks().forEach(t => t.stop()); return; }

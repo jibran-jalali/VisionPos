@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RunActionButton } from "@/components/ui/run-action-button";
-import { detectBarcode, detectBarcodeFromCanvas } from "@/lib/browser-vision/barcode";
+import { detectBarcode } from "@/lib/browser-vision/barcode";
 import { computeHistogram } from "@/lib/browser-vision/histogram";
 
 type CapturedFrame = { blob: Blob; url: string };
@@ -53,7 +53,6 @@ export function AddProductFlow() {
   const [cameraState, setCameraState] = useState<"loading" | "ready" | "denied" | "error">("loading");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const barcodeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const extractorRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -96,48 +95,8 @@ export function AddProductFlow() {
     }
   }
 
-  function copyVideoFrameForBarcode(video: HTMLVideoElement, mode: "full" | "center" | "strip") {
-    const sourceW = video.videoWidth || 640;
-    const sourceH = video.videoHeight || 480;
-    let sx = 0;
-    let sy = 0;
-    let sw = sourceW;
-    let sh = sourceH;
-
-    if (mode === "center") {
-      sw = sourceW * 0.72;
-      sh = sourceH * 0.72;
-      sx = (sourceW - sw) / 2;
-      sy = (sourceH - sh) / 2;
-    }
-
-    if (mode === "strip") {
-      sw = sourceW * 0.92;
-      sh = sourceH * 0.46;
-      sx = (sourceW - sw) / 2;
-      sy = (sourceH - sh) / 2;
-    }
-
-    const scale = Math.min(820 / sw, 820 / sh, 1.7);
-    const canvas = barcodeCanvasRef.current || document.createElement("canvas");
-    barcodeCanvasRef.current = canvas;
-    canvas.width = Math.max(1, Math.round(sw * scale));
-    canvas.height = Math.max(1, Math.round(sh * scale));
-    canvas.getContext("2d")?.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-
   async function scanBarcodeFrame(video: HTMLVideoElement) {
-    const direct = await detectBarcode(video, { fallback: true, maxSize: 720 });
-    if (direct) return direct;
-
-    const full = await detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "full"));
-    if (full) return full;
-
-    const strip = await detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "strip"));
-    if (strip) return strip;
-
-    return detectBarcodeFromCanvas(copyVideoFrameForBarcode(video, "center"));
+    return detectBarcode(video, { fallback: true, maxSize: 1280, tryHarder: true });
   }
 
   useEffect(() => {
@@ -145,7 +104,7 @@ export function AddProductFlow() {
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           audio: false,
         });
         if (!mounted) { stream.getTracks().forEach((track) => track.stop()); return; }
@@ -471,11 +430,11 @@ export function AddProductFlow() {
         </div>
       </CardHeader>
 
-      <div className="grid gap-3 xl:grid-cols-[320px_1fr]">
-        <div className="grid gap-2">
+      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid min-w-0 gap-2">
           {error && <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</div>}
 
-          <div className="relative overflow-hidden rounded-xl bg-black">
+          <div className="relative min-w-0 overflow-hidden rounded-xl bg-black">
             {cameraState === "loading" && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
                 <Loader2 className="h-8 w-8 animate-spin text-white/70" />
@@ -511,27 +470,28 @@ export function AddProductFlow() {
             ) : null}
           </div>
 
-          <div className="rounded-xl bg-[#f1f7fb] p-2">
+          <div className="min-w-0 rounded-xl bg-[#f1f7fb] p-2">
             <div className="rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-[#607080] ring-1 ring-[#dfebf3]">
               <ScanLine className="mr-1.5 inline h-3.5 w-3.5 text-emerald-600" />
               Camera or USB scanner auto-fills barcode/SKU
             </div>
           </div>
 
-          <div className="rounded-xl bg-[#f1f7fb] p-2.5">
-            <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 rounded-xl bg-[#f1f7fb] p-2.5">
+            <div className="grid gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-[#060b1f]">Vision training</p>
-                <p className="mt-0.5 truncate text-[11px] text-[#607080]">Record 5-8s rotating product.</p>
+                <p className="mt-0.5 text-[11px] text-[#607080]">Record 5-8s rotating product.</p>
               </div>
               <RunActionButton
+                className="justify-start"
                 steps={recordSteps}
                 idleLabel={isExtracting ? "Extracting..." : "Record video"}
                 doneLabel="Video ready"
                 intervalMs={950}
-                idleWidth={145}
-                runningWidth={255}
-                doneWidth={155}
+                idleWidth={165}
+                runningWidth={270}
+                doneWidth={165}
                 disabled={cameraState !== "ready" || isExtracting || isSaving}
                 onStart={startRecording}
                 onCancel={stopRecording}
@@ -563,8 +523,8 @@ export function AddProductFlow() {
           </div>
         </div>
 
-        <div className="grid content-start gap-2">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="grid min-w-0 content-start gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#060b1f]">Product name</label>
               <Input placeholder="Coke 500ml" value={name} onChange={(e) => setName(e.target.value)} required className="h-9 text-sm" />
@@ -583,7 +543,7 @@ export function AddProductFlow() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#060b1f]">Price</label>
               <Input type="number" min="1" step="0.01" placeholder="120" value={price} onChange={(e) => setPrice(e.target.value)} required className="h-9 text-sm" />
@@ -647,7 +607,7 @@ export function AddProductFlow() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)]">
             <Button type="button" variant="soft" size="sm" onClick={addVariant} className="h-8 text-xs">
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Size
             </Button>
