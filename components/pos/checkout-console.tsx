@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, AnimatePresence } from "motion/react";
 import { Plus, Printer, Search, Trash2, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -272,19 +273,28 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
         ) : (
           <>
             <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-              {["All", ...Array.from(new Set(products.map((p) => p.category)))].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat === "All" ? null : cat)}
-                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                    (cat === "All" && !categoryFilter) || categoryFilter === cat
-                      ? "bg-[#060b1f] text-white"
-                      : "bg-[#f1f7fb] text-[#607080] hover:bg-[#e4edf5]"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              <div className="relative flex gap-1.5 rounded-full bg-[#f1f7fb] p-1.5">
+                {["All", ...Array.from(new Set(products.map((p) => p.category)))].map((cat) => {
+                  const isActive = (cat === "All" && !categoryFilter) || categoryFilter === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat === "All" ? null : cat)}
+                      className="relative z-10 shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold text-[#607080] transition-colors duration-200 hover:text-[#060b1f]"
+                    >
+                      {isActive && (
+                        <motion.div
+                          layoutId="category-pill"
+                          className="absolute inset-0 rounded-full bg-[#060b1f] shadow-lg"
+                          style={{ zIndex: -1 }}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <span className={`relative z-10 ${isActive ? "text-white" : ""}`}>{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="grid flex-1 grid-cols-3 gap-3 md:grid-cols-4 xl:grid-cols-5">
               {filteredProducts.map((product) => (
@@ -375,16 +385,39 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <Button size="touch" variant="soft" onClick={() => openPayment("RECEIPT")} disabled={cart.length === 0 || isCompleting}>
-            <Printer className="mr-2 h-5 w-5" /> Receipt
-          </Button>
-          <Button size="touch" variant="gradient" onClick={() => openPayment("RECEIPT")} disabled={cart.length === 0 || isCompleting}>
-            Complete Sale
-          </Button>
-          <Button className="col-span-2" size="lg" variant="soft" onClick={() => openPayment("A4")} disabled={cart.length === 0 || isCompleting}>
-            A4 Invoice
-          </Button>
+        <div className="mt-4 space-y-3">
+          <div className="flex rounded-full bg-[#f1f7fb] p-1">
+            {(["RECEIPT", "A4"] as InvoiceFormat[]).map((fmt) => {
+              const isActive = invoiceFormat === fmt;
+              return (
+                <button
+                  key={fmt}
+                  onClick={() => setInvoiceFormat(fmt)}
+                  className="relative flex-1 rounded-full py-2.5 text-center text-sm font-semibold transition-colors duration-200"
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="invoice-format-pill"
+                      className="absolute inset-0 rounded-full bg-white shadow-md"
+                      style={{ zIndex: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                    />
+                  )}
+                  <span className={`relative z-10 ${isActive ? "text-[#060b1f]" : "text-[#607080]"}`}>
+                    {fmt === "RECEIPT" ? "Receipt" : "A4 Invoice"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button size="touch" variant="soft" onClick={() => openPayment(invoiceFormat)} disabled={cart.length === 0 || isCompleting}>
+              <Printer className="mr-2 h-5 w-5" /> Print
+            </Button>
+            <Button size="touch" variant="gradient" onClick={() => openPayment(invoiceFormat)} disabled={cart.length === 0 || isCompleting}>
+              Complete Sale
+            </Button>
+          </div>
         </div>
       </aside>
 
@@ -417,18 +450,40 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {paymentMethods.map((method) => (
-                <button
-                  key={method.value}
-                  type="button"
-                  onClick={() => setPaymentMethod(method.value)}
-                  disabled={isCompleting}
-                  className={`rounded-[22px] border p-4 text-left transition ${paymentMethod === method.value ? "border-[#15bdf2] bg-[#eef9ff] shadow-[0_16px_34px_rgba(21,189,242,0.16)]" : "border-[#dfebf3] bg-[#fbfdff] hover:border-[#15bdf2]"}`}
-                >
-                  <span className="block font-semibold text-[#060b1f]">{method.label}</span>
-                  <span className="mt-1 block text-xs font-medium text-[#607080]">{method.helper}</span>
-                </button>
-              ))}
+              {paymentMethods.map((method) => {
+                const isActive = paymentMethod === method.value;
+                return (
+                  <motion.button
+                    key={method.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(method.value)}
+                    disabled={isCompleting}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="relative overflow-hidden rounded-[22px] border p-4 text-left transition-colors duration-200"
+                    style={{
+                      borderColor: isActive ? "#7c3aed" : "#dfebf3",
+                      backgroundColor: isActive ? "#f5f0ff" : "#fbfdff",
+                    }}
+                    animate={{
+                      boxShadow: isActive
+                        ? "0 16px 34px rgba(124, 58, 237, 0.18)"
+                        : "0 2px 8px rgba(0,0,0,0.04)",
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="payment-active-bg"
+                        className="absolute inset-0 rounded-[22px] bg-gradient-to-br from-[#7c3aed] to-[#6366f1] opacity-[0.06]"
+                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative block font-semibold text-[#060b1f]">{method.label}</span>
+                    <span className="relative mt-1 block text-xs font-medium text-[#607080]">{method.helper}</span>
+                  </motion.button>
+                );
+              })}
             </div>
 
             {paymentMethod === "CASH" && (
