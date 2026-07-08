@@ -15,7 +15,12 @@ const completeSaleSchema = z.object({
   paymentMethod: z.enum(["CASH", "CARD", "BANK_TRANSFER", "MOBILE_WALLET", "OTHER"]).default("CASH"),
   invoiceFormat: z.enum(["RECEIPT", "A4"]).default("RECEIPT"),
   discountAmount: z.coerce.number().min(0).default(0),
+  amountTendered: z.coerce.number().min(0).optional(),
 });
+
+function roundMoney(value: number) {
+  return Number(value.toFixed(2));
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -122,6 +127,11 @@ export async function POST(request: NextRequest) {
       const taxableAmount = Math.max(0, subtotal - discountAmount);
       const taxAmount = taxEnabled ? Math.round(taxableAmount * (taxRate / 100)) : 0;
       const totalAmount = taxableAmount + taxAmount;
+      const amountTendered = parsed.data.paymentMethod === "CASH" ? roundMoney(parsed.data.amountTendered ?? 0) : 0;
+      if (parsed.data.paymentMethod === "CASH" && amountTendered < totalAmount) {
+        throw new Error("Cash received is less than the amount due.");
+      }
+      const changeDue = parsed.data.paymentMethod === "CASH" ? roundMoney(amountTendered - totalAmount) : 0;
       const invoiceNumber = createInvoiceNumber();
 
       const sale = await tx.sale.create({
@@ -134,6 +144,8 @@ export async function POST(request: NextRequest) {
           discountAmount,
           taxAmount,
           totalAmount,
+          amountTendered,
+          changeDue,
           currencyCode: settings?.currencyCode || "PKR",
           currencySymbol: settings?.currencySymbol || "Rs",
           paymentMethod: parsed.data.paymentMethod,
@@ -228,6 +240,8 @@ export async function POST(request: NextRequest) {
       discountAmount: Number(sale.discountAmount),
       taxAmount: Number(sale.taxAmount),
       totalAmount: Number(sale.totalAmount),
+      amountTendered: Number(sale.amountTendered),
+      changeDue: Number(sale.changeDue),
       items: sale.items.map((item) => ({
         name: item.variantName ? `${item.productNameSnapshot} (${item.variantName})` : item.productNameSnapshot,
         sku: item.skuSnapshot,

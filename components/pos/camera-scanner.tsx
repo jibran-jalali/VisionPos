@@ -46,10 +46,12 @@ export function CameraScanner({
   const lastZxingScanAtRef = useRef(0);
   const lastRobustBarcodeScanAtRef = useRef(0);
   const lastVisionScanAtRef = useRef(0);
+  const lastMobileNetVisionScanAtRef = useRef(0);
   const lastVisionProductRef = useRef<string | null>(null);
   const lastVisionProductTimeRef = useRef(0);
   const lastOcrTimeRef = useRef(0);
   const scanningRef = useRef(false);
+  const barcodeRunningRef = useRef(false);
   const visionProfilesRef = useRef<ProfileData[]>([]);
   const visionConsecutiveProductRef = useRef<string | null>(null);
   const visionConsecutiveCountRef = useRef(0);
@@ -57,6 +59,7 @@ export function CameraScanner({
   const ocrRunningRef = useRef(false);
   const scanCountRef = useRef(0);
   const lastScanCountUiAtRef = useRef(0);
+  const scannerStartedAtRef = useRef(0);
   const matchedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const productByCode = useMemo(() => {
@@ -89,44 +92,51 @@ export function CameraScanner({
       setScanCount(scanCountRef.current);
     }
 
-    // Native barcode scans fast; ZXing fallback is throttled because it is heavier.
-    if (now - lastBarcodeScanAtRef.current > 70) {
+    // Keep barcode recognition frequent, but run heavy decode passes off the main scan loop.
+    if (!barcodeRunningRef.current && now - lastBarcodeScanAtRef.current > 120) {
       lastBarcodeScanAtRef.current = now;
-      const useZxingFallback = now - lastZxingScanAtRef.current > 220;
+      const useRobustFallback = now - lastRobustBarcodeScanAtRef.current > 2400;
+      const useZxingFallback = useRobustFallback || now - lastZxingScanAtRef.current > 450;
       if (useZxingFallback) lastZxingScanAtRef.current = now;
-      const useRobustFallback = now - lastRobustBarcodeScanAtRef.current > 1400;
       if (useRobustFallback) lastRobustBarcodeScanAtRef.current = now;
-      try {
-        const barcode = await detectBarcode(video, {
-          fallback: useZxingFallback || useRobustFallback,
-          maxSize: useRobustFallback ? 1120 : 640,
-          tryHarder: useRobustFallback,
-        });
-        if (barcode) {
-          if (barcode !== lastBarcodeRef.current || now - lastBarcodeTimeRef.current > 3000) {
-            const product = productByCode.get(barcode);
-            if (product) {
-              lastBarcodeRef.current = barcode;
-              lastBarcodeTimeRef.current = now;
-              setLastBarcodeDisplay(barcode);
-              flashMatch(product.name);
-              onProductMatched(product);
-              return;
+      barcodeRunningRef.current = true;
+      void (async () => {
+        try {
+          const barcode = await detectBarcode(video, {
+            fallback: useZxingFallback,
+            maxSize: useRobustFallback ? 960 : 480,
+            tryHarder: useRobustFallback,
+          });
+          if (barcode) {
+            const matchTime = Date.now();
+            if (barcode !== lastBarcodeRef.current || matchTime - lastBarcodeTimeRef.current > 3000) {
+              const product = productByCode.get(barcode);
+              if (product) {
+                lastBarcodeRef.current = barcode;
+                lastBarcodeTimeRef.current = matchTime;
+                setLastBarcodeDisplay(barcode);
+                flashMatch(product.name);
+                onProductMatched(product);
+              }
             }
           }
-          return;
+        } finally {
+          barcodeRunningRef.current = false;
         }
-      } catch {}
+      })();
     }
 
-    // Vision runs in the background so product recognition does not block barcode scans.
-    if (visionProfilesRef.current.length > 0 && !visionRunningRef.current && now - lastVisionScanAtRef.current >= 300) {
+    // Vision is secondary at checkout. HSV runs often; MobileNet is much slower and runs sparingly.
+    if (visionProfilesRef.current.length > 0 && !visionRunningRef.current && now - lastVisionScanAtRef.current >= 650) {
       lastVisionScanAtRef.current = now;
+      const useMobileNet = now - scannerStartedAtRef.current > 3000 && now - lastMobileNetVisionScanAtRef.current >= 5000;
+      if (useMobileNet) lastMobileNetVisionScanAtRef.current = now;
       visionRunningRef.current = true;
       setScanPhase("scanning");
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
-      const scale = Math.min(224 / sourceW, 224 / sourceH, 1);
+      const maxSize = useMobileNet ? 160 : 128;
+      const scale = Math.min(maxSize / sourceW, maxSize / sourceH, 1);
       const visionCanvas = document.createElement("canvas");
       visionCanvas.width = Math.max(1, Math.round(sourceW * scale));
       visionCanvas.height = Math.max(1, Math.round(sourceH * scale));
@@ -135,7 +145,10 @@ export function CameraScanner({
         ctx.drawImage(video, 0, 0, visionCanvas.width, visionCanvas.height);
         void (async () => {
           try {
-            const result = await matchCanvasAll(visionCanvas, visionProfilesRef.current);
+            const result = await matchCanvasAll(visionCanvas, visionProfilesRef.current, {
+              useMobileNet,
+              mobileNetTimeoutMs: 600,
+            });
             const matchTime = Date.now();
             if (result?.accepted) {
               if (result.productId === visionConsecutiveProductRef.current) {
@@ -170,15 +183,15 @@ export function CameraScanner({
       }
     }
 
-    // OCR is a slow fallback, so it always runs in the background.
-    if (!ocrRunningRef.current && now - lastOcrTimeRef.current > 4500 && products.length > 0) {
+    // OCR is very slow; keep it as a rare fallback only.
+    if (!ocrRunningRef.current && !visionRunningRef.current && now - scannerStartedAtRef.current > 6000 && now - lastOcrTimeRef.current > 12000 && products.length > 0) {
       lastOcrTimeRef.current = now;
       ocrRunningRef.current = true;
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
       const ocrCanvas = document.createElement("canvas");
-      ocrCanvas.width = Math.max(1, Math.round(sourceW * 0.35));
-      ocrCanvas.height = Math.max(1, Math.round(sourceH * 0.35));
+      ocrCanvas.width = Math.max(1, Math.round(sourceW * 0.25));
+      ocrCanvas.height = Math.max(1, Math.round(sourceH * 0.25));
       const ctx = ocrCanvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(video, 0, 0, ocrCanvas.width, ocrCanvas.height);
@@ -211,7 +224,7 @@ export function CameraScanner({
     async function init() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+          video: { facingMode: "environment", width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 30 } },
           audio: false,
         });
         if (!running) { stream.getTracks().forEach(t => t.stop()); return; }
@@ -226,12 +239,13 @@ export function CameraScanner({
         visionProfilesRef.current = await loadProfiles();
 
         scanningRef.current = true;
-        const scan = async () => {
+        scannerStartedAtRef.current = Date.now();
+        const scan = () => {
           if (!scanningRef.current) return;
-          await tryMatchRef.current();
-          requestAnimationFrame(scan);
+          void tryMatchRef.current();
+          window.setTimeout(scan, 80);
         };
-        requestAnimationFrame(scan);
+        window.setTimeout(scan, 80);
       } catch (err) {
         if (!running) return;
         const msg = String(err);

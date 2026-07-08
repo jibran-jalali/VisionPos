@@ -30,6 +30,8 @@ export function buildReceiptLines(data: {
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
+  amountTendered?: number;
+  changeDue?: number;
   footer?: string;
   invoiceId: string;
 }): ReceiptLine[] {
@@ -62,6 +64,10 @@ export function buildReceiptLines(data: {
   if (data.discountAmount > 0) lines.push({ type: "text", value: padRight("Discount", W - 10) + padLeft(`-${fmt(data.discountAmount)}`, 10) });
   if (data.taxAmount > 0) lines.push({ type: "text", value: padRight("Tax", W - 10) + padLeft(fmt(data.taxAmount), 10) });
   lines.push({ type: "text", value: padRight("TOTAL", W - 10) + padLeft(fmt(data.totalAmount), 10), bold: true, underline: true });
+  if (data.paymentMethod === "CASH" && data.amountTendered !== undefined) {
+    lines.push({ type: "text", value: padRight("Cash", W - 10) + padLeft(fmt(data.amountTendered), 10) });
+    lines.push({ type: "text", value: padRight("Change", W - 10) + padLeft(fmt(data.changeDue || 0), 10), bold: true });
+  }
   lines.push({ type: "divider" });
   lines.push({ type: "text", value: padCenter(data.footer || "Thank you for shopping with us!", W), align: 1 });
   lines.push({ type: "qr", value: `https://visionpos.app/invoice/${data.invoiceId}` });

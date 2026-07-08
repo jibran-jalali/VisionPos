@@ -33,6 +33,12 @@ export function ReceiptTemplate({ invoice }: { invoice: InvoicePrintData }) {
         <div className="flex justify-between"><span>Discount</span><span>-{formatMoney(invoice.discountAmount, currency)}</span></div>
         <div className="flex justify-between"><span>Tax</span><span>{formatMoney(invoice.taxAmount, currency)}</span></div>
         <div className="flex justify-between text-xl font-semibold text-[#060b1f]"><span>Total</span><span>{formatMoney(invoice.totalAmount, currency)}</span></div>
+        {invoice.paymentMethod === "CASH" && (
+          <>
+            <div className="flex justify-between"><span>Cash received</span><span>{formatMoney(invoice.amountTendered, currency)}</span></div>
+            <div className="flex justify-between text-base font-semibold text-emerald-700"><span>Change due</span><span>{formatMoney(invoice.changeDue, currency)}</span></div>
+          </>
+        )}
       </div>
       <p className="mt-6 text-center text-xs font-bold text-[#607080]">{invoice.footer}</p>
       <div className="mt-4 border-t border-dashed border-[#cbd5e1] pt-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-[#9aa8b5]">

@@ -44,6 +44,12 @@ export function A4Template({ invoice }: { invoice: InvoicePrintData }) {
         <div className="flex justify-between"><span>Discount</span><span>-{formatMoney(invoice.discountAmount, currency)}</span></div>
         <div className="flex justify-between"><span>Tax</span><span>{formatMoney(invoice.taxAmount, currency)}</span></div>
         <div className="flex justify-between border-t border-[#dfebf3] pt-4 text-2xl font-semibold text-[#060b1f]"><span>Total</span><span>{formatMoney(invoice.totalAmount, currency)}</span></div>
+        {invoice.paymentMethod === "CASH" && (
+          <>
+            <div className="flex justify-between"><span>Cash received</span><span>{formatMoney(invoice.amountTendered, currency)}</span></div>
+            <div className="flex justify-between text-base font-semibold text-emerald-700"><span>Change due</span><span>{formatMoney(invoice.changeDue, currency)}</span></div>
+          </>
+        )}
       </section>
       <p className="mt-10 text-center text-sm font-bold text-[#607080]">{invoice.footer}</p>
       <div className="mt-5 border-t border-[#dfebf3] pt-4 text-center text-xs font-bold uppercase tracking-[0.18em] text-[#9aa8b5]">

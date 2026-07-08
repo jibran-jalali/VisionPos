@@ -21,6 +21,8 @@ export type InvoicePrintData = {
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
+  amountTendered: number;
+  changeDue: number;
   items: {
     name: string;
     sku: string;
@@ -67,6 +69,8 @@ export async function getInvoicePrintData(invoiceId: string, businessId: string)
     discountAmount: Number(invoice.sale.discountAmount),
     taxAmount: Number(invoice.sale.taxAmount),
     totalAmount: Number(invoice.sale.totalAmount),
+    amountTendered: Number(invoice.sale.amountTendered),
+    changeDue: Number(invoice.sale.changeDue),
     items: invoice.sale.items.map((item) => ({
       name: item.productNameSnapshot,
       sku: item.skuSnapshot,

@@ -65,6 +65,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
   const [isCompleting, setIsCompleting] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [cashTenderedInput, setCashTenderedInput] = useState("");
   const [invoiceFormat, setInvoiceFormat] = useState<InvoiceFormat>("RECEIPT");
   const [showInvoicePopup, setShowInvoicePopup] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState<InvoicePrintData | null>(null);
@@ -86,6 +87,9 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
   const discount = manualDiscount;
   const tax = taxEnabled ? Math.round((subtotal - discount) * (taxRate / 100)) : 0;
   const total = subtotal - discount + tax;
+  const cashTendered = Number(cashTenderedInput || 0);
+  const changeDue = Math.max(0, cashTendered - total);
+  const isCashPaymentShort = paymentMethod === "CASH" && cashTendered < total;
 
   function addToCart(product: CheckoutProduct, variant?: { name: string; priceAdj: number }) {
     setShowInvoicePopup(false);
@@ -143,11 +147,18 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
     setInvoiceFormat(format);
     setPaymentOpen(true);
     setCheckoutError("");
+    setCashTenderedInput("");
   }
 
   async function completeSale() {
     if (cart.length === 0 || isCompleting) return;
     setCheckoutError("");
+
+    if (isCashPaymentShort) {
+      setCheckoutError("Enter enough cash received before completing the sale.");
+      return;
+    }
+
     setIsCompleting(true);
 
     try {
@@ -158,6 +169,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
           invoiceFormat,
           paymentMethod,
           discountAmount: discount,
+          amountTendered: paymentMethod === "CASH" ? cashTendered : undefined,
           items: cart.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -178,6 +190,7 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
 
       setCart([]);
       setPaymentOpen(false);
+      setCashTenderedInput("");
       setInvoicePreviewData(data.invoiceData);
       setShowInvoicePopup(true);
 
@@ -197,6 +210,8 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
             discountAmount: data.invoiceData.discountAmount,
             taxAmount: data.invoiceData.taxAmount,
             totalAmount: data.invoiceData.totalAmount,
+            amountTendered: data.invoiceData.amountTendered,
+            changeDue: data.invoiceData.changeDue,
             footer: data.invoiceData.footer,
             invoiceId: data.invoiceId,
           });
@@ -416,9 +431,45 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
               ))}
             </div>
 
+            {paymentMethod === "CASH" && (
+              <div className="mt-5 rounded-[24px] border border-[#dfebf3] bg-[#fbfdff] p-4">
+                <label className="block text-xs font-bold uppercase tracking-[0.14em] text-[#607080]">Cash received</label>
+                <div className="relative mt-2">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#607080]">{currencySymbol}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    autoFocus
+                    value={cashTenderedInput}
+                    onChange={(e) => setCashTenderedInput(e.target.value)}
+                    placeholder="Enter customer cash"
+                    disabled={isCompleting}
+                    className="min-h-14 w-full rounded-2xl border border-[#dfebf3] bg-white pl-12 pr-4 text-2xl font-semibold text-[#060b1f] outline-none transition focus:border-[#15bdf2] focus:ring-4 focus:ring-sky-100"
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setCashTenderedInput(String(total))} disabled={isCompleting} className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-[#060b1f] ring-1 ring-[#dfebf3] hover:bg-[#f1f7fb]">
+                    Exact cash
+                  </button>
+                  <button type="button" onClick={() => setCashTenderedInput(String(Math.ceil(total / 100) * 100))} disabled={isCompleting} className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-[#060b1f] ring-1 ring-[#dfebf3] hover:bg-[#f1f7fb]">
+                    Round up
+                  </button>
+                </div>
+                <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#eefdf4] px-4 py-3">
+                  <span className="text-sm font-bold text-emerald-800">Change to return</span>
+                  <strong className="text-2xl font-semibold text-emerald-700">{formatMoney(changeDue)}</strong>
+                </div>
+                {isCashPaymentShort && (
+                  <p className="mt-2 text-xs font-semibold text-red-600">Cash received must be at least {formatMoney(total)}.</p>
+                )}
+              </div>
+            )}
+
             {checkoutError && <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{checkoutError}</div>}
 
-            <Button className="mt-5 w-full" size="touch" variant="gradient" onClick={completeSale} disabled={isCompleting}>
+            <Button className="mt-5 w-full" size="touch" variant="gradient" onClick={completeSale} disabled={isCompleting || isCashPaymentShort}>
               {isCompleting ? "Saving paid transaction..." : `Mark Paid (${paymentMethods.find((method) => method.value === paymentMethod)?.label})`}
             </Button>
           </div>
@@ -446,6 +497,8 @@ export function CheckoutConsole({ products, cashierName, visionEnabled, autoPrin
                       discountAmount: invoicePreviewData.discountAmount,
                       taxAmount: invoicePreviewData.taxAmount,
                       totalAmount: invoicePreviewData.totalAmount,
+                      amountTendered: invoicePreviewData.amountTendered,
+                      changeDue: invoicePreviewData.changeDue,
                       footer: invoicePreviewData.footer,
                       invoiceId: invoicePreviewData.invoiceId,
                     });

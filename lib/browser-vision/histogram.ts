@@ -104,17 +104,20 @@ export function matchCanvas(canvas: HTMLCanvasElement, profiles: ProfileData[]):
 
 export async function matchCanvasAll(
   canvas: HTMLCanvasElement,
-  profiles: ProfileData[]
+  profiles: ProfileData[],
+  options: { useMobileNet?: boolean; mobileNetTimeoutMs?: number } = {},
 ): Promise<MatchResult | null> {
   if (!profiles.length) return null;
 
   const hsvQuery = computeHistogram(canvas);
   let mobilenetQuery: number[] | null = null;
   const hasMobilenet = profiles.some((p) => p.embeddingModel === "mobilenet_v2");
-  if (hasMobilenet) {
+  if (hasMobilenet && options.useMobileNet !== false) {
     try {
       const { extractFeatures } = await import("./mobilenet");
-      mobilenetQuery = await extractFeatures(canvas);
+      const timeoutMs = options.mobileNetTimeoutMs ?? 900;
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+      mobilenetQuery = await Promise.race([extractFeatures(canvas), timeout]);
     } catch {}
   }
 
